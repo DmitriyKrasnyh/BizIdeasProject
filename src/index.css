@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body {
+    margin: 0;
+    padding: 0;
+    /* Разрешаем скролл, но скрываем полосы */
+    overflow: auto; 
+    /* Для Firefox (убирает обе полосы) */
+    scrollbar-width: none; 
+  }
+  
+  /* Для Chrome / Edge / Safari / Opera (на базе Blink) */
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    width: 0px;    /* вертикальная полоса */
+    height: 0px;   /* горизонтальная полоса */
+    background: transparent; 
+  }
+  

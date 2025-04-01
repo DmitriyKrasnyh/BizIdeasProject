@@ -1,0 +1,19 @@
+/* ========== АНИМАЦИЯ ПРИ СМЕНЕ СТРАНИЦ ========== */
+.page-enter {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  .page-enter.page-enter-active {
+    opacity: 1;
+    transform: translateX(0);
+    transition: opacity 300ms ease, transform 300ms ease;
+  }
+  .page-exit {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  .page-exit.page-exit-active {
+    opacity: 0;
+    transform: translateX(-30px);
+    transition: opacity 300ms ease, transform 300ms ease;
+  }
