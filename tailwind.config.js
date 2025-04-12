@@ -20,3 +20,20 @@ module.exports = {
   plugins: [],
 };
 
+module.exports = {
+  content: ['./src/**/*.{js,ts,jsx,tsx}'],
+  theme: {
+    extend: {
+      keyframes: {
+        wiggle: {
+          '0%, 100%': { transform: 'translateY(0) scale(1)' },
+          '50%': { transform: 'translateY(-10px) scale(1.05)' },
+        },
+      },
+      animation: {
+        wiggle: 'wiggle 0.6s ease-in-out',
+      },
+    },
+  },
+  plugins: [],
+};

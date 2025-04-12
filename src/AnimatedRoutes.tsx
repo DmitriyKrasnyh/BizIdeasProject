@@ -9,6 +9,7 @@ import { Register } from './pages/Register';
 import { Profile } from './pages/Profile';
 import { Ideas } from './pages/Ideas';
 import { AdminPanel } from './pages/AdminPanel';
+import { ResetPassword } from './pages/ResetPassword';
 
 
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -57,6 +58,8 @@ export function AnimatedRoutes() {
                 path="/ideas"
                 element={<ProtectedRoute><Ideas /></ProtectedRoute>}
               />
+
+              <Route path="/reset" element={<ResetPassword />} />
 
               {/* Админ-панель */}
               <Route

@@ -3,6 +3,9 @@ import { Tag } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import mascotImg from './logos/mascot.png'; // путь к изображению маскота
+import {BUSINESS_SECTORS} from '../contexts/constants.ts';
+
 
 interface Idea {
   idea_id: number;
@@ -22,11 +25,10 @@ export const Ideas: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIdeaId, setSelectedIdeaId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
-  const [userId, setUserId] = useState<number | null>(null); // новый state
+  const [userId, setUserId] = useState<number | null>(null);
+  const [mascotReact, setMascotReact] = useState(false); // флаг анимации
   const { t } = useLanguage();
   const { user } = useAuth();
-
-  const ALL_TAGS = ['IT', 'AI', 'Marketing', 'Eco', 'FoodTech', 'Sustainability', 'Health', 'Fitness', 'Automation', 'Retail'];
 
   useEffect(() => {
     const loadIdeas = async () => {
@@ -47,8 +49,6 @@ export const Ideas: React.FC = () => {
 
         if (data?.user_id) {
           setUserId(data.user_id);
-
-          // подгрузим выбранную идею
           const { data: ideaData, error: ideaError } = await supabase
             .from('userideas')
             .select('idea_id')
@@ -73,6 +73,8 @@ export const Ideas: React.FC = () => {
   const toggleTag = (tag: string) => {
     setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
     setCurrentPage(1);
+    setMascotReact(true); // запускаем анимацию
+    setTimeout(() => setMascotReact(false), 800); // сброс флага
   };
 
   const handleChooseIdea = async () => {
@@ -89,13 +91,7 @@ export const Ideas: React.FC = () => {
     setSaving(true);
     const { error } = await supabase
       .from('userideas')
-      .upsert([
-        {
-          user_id: userId,
-          idea_id: expanded.idea_id,
-          saved_at: new Date().toISOString()
-        }
-      ], { onConflict: 'user_id' });
+      .upsert([{ user_id: userId, idea_id: expanded.idea_id, saved_at: new Date().toISOString() }], { onConflict: 'user_id' });
 
     if (error) {
       alert('Ошибка при сохранении идеи: ' + error.message);
@@ -115,15 +111,14 @@ export const Ideas: React.FC = () => {
   const currentIdeas = filteredIdeas.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   return (
-    <div className="min-h-screen bg-black text-white py-12 relative">
-      <div className="max-w-7xl mx-auto px-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#100018] via-[#070111] to-black text-white py-12 relative overflow-hidden">
+      <div className="max-w-7xl mx-auto px-4 z-10 relative">
         <h1 className="text-4xl font-bold mb-8">{t('trendingIdeas') || 'Trending Business Ideas'}</h1>
 
-        {/* Теги */}
         <div className="mb-8">
           <h2 className="text-lg font-semibold mb-4">{t('filterByTags') || 'Filter by Tags'}</h2>
           <div className="flex flex-wrap gap-2">
-            {ALL_TAGS.map(tag => (
+            {BUSINESS_SECTORS.map(tag => (
               <button
                 key={tag}
                 onClick={() => toggleTag(tag)}
@@ -140,11 +135,10 @@ export const Ideas: React.FC = () => {
           </div>
         </div>
 
-        {/* Карточки */}
         {loading ? (
           <div className="text-center text-gray-400">Загрузка идей...</div>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 relative z-10">
             {currentIdeas.map(idea => (
               <div
                 key={idea.idea_id}
@@ -168,9 +162,8 @@ export const Ideas: React.FC = () => {
           </div>
         )}
 
-        {/* Пагинация */}
         {pageCount > 1 && (
-          <div className="flex justify-center mt-10 gap-3">
+          <div className="flex justify-center mt-10 gap-3 z-10 relative">
             {Array.from({ length: pageCount }, (_, i) => i + 1).map(page => (
               <button
                 key={page}
@@ -188,7 +181,15 @@ export const Ideas: React.FC = () => {
         )}
       </div>
 
-      {/* Модалка */}
+      {/* Маскот с анимацией при выборе темы */}
+      <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 z-0 pointer-events-none">
+        <div className={`relative w-[600px] h-[350px] overflow-hidden transition-transform duration-500 ${mascotReact ? 'animate-wiggle' : ''}`}>
+          <img src={mascotImg} alt="Mascot" className="w-full h-auto" />
+        </div>
+      </div>
+
+
+      {/* Модалка: подробности идеи */}
       {expanded && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
@@ -198,7 +199,6 @@ export const Ideas: React.FC = () => {
             onClick={e => e.stopPropagation()}
             className="relative max-w-xl w-full bg-gray-900 text-white rounded-xl p-6 shadow-lg"
           >
-            {/* Кнопка справа сверху */}
             <button
               onClick={handleChooseIdea}
               disabled={saving}
@@ -206,7 +206,6 @@ export const Ideas: React.FC = () => {
             >
               {selectedIdeaId === expanded.idea_id ? 'Выбрано ✅' : saving ? 'Сохраняем...' : 'Выбрать идею'}
             </button>
-
             <h2 className="text-2xl font-bold mb-4">{expanded.title}</h2>
             <p className="text-gray-300 mb-4">{expanded.description}</p>
             <div className="flex flex-wrap gap-2 mb-2">

@@ -1,70 +1,65 @@
-// src/pages/Profile.tsx
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase } from '../lib/supabase';
-import { User as UserIcon } from 'lucide-react';
+import {
+  REGIONS,
+  BUSINESS_SECTORS,
+  TRANSITION_GOALS,
+  EXPERIENCE_LEVELS
+} from '../contexts/constants.ts';
 
-const REGIONS = ['North America', 'Europe', 'Asia Pacific', 'Latin America', 'Middle East', 'Africa'];
-const BUSINESS_SECTORS = ['IT & Technology', 'Food & Beverage', 'Retail', 'Healthcare', 'Education', 'Manufacturing', 'Services', 'Eco & Sustainability'];
-const TRANSITION_GOALS = ['Expand to new markets', 'Go eco-friendly', 'Automate processes', 'Digital transformation', 'Diversify product line'];
-const EXPERIENCE_LEVELS = ['Beginner', 'Intermediate', 'Advanced'];
+const generateAvatarUrl = (email: string) => {
+  return `https://robohash.org/${encodeURIComponent(email)}?set=set1&size=150x150`;
+};
+
+const loadingPhrases = [
+  'Считаем котов...',
+  'Взламываем Пентагон...',
+  'Собираем нейросеть...',
+  'Оптимизируем бизнес...',
+  'Генерируем гениальные идеи...',
+  'Синхронизируем Бали с космосом...',
+  'Проводим ретрит в фоновом режиме...'
+];
 
 export const Profile: React.FC = () => {
   const { user, updateUser } = useAuth();
   const { t } = useLanguage();
 
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [loadingText, setLoadingText] = useState('');
   const [profileData, setProfileData] = useState({
     region: '',
     businessSector: '',
     transitionGoal: '',
     experienceLevel: '',
     status: 'standard',
+    telegram: '',
+    user_text: ''
   });
 
   useEffect(() => {
     if (!user) return;
 
-    const loadProfile = async () => {
-      const { data, error } = await supabase
-        .from('users')
-        .select('user_id, region, business_sector, transition_goal, experience_lvl, status')
-        .eq('email', user.email)
-        .single();
-
-      if (error) {
-        console.error('❌ Ошибка загрузки профиля:', error.message);
-      } else if (data) {
-        setProfileData({
-          region: data.region || '',
-          businessSector: data.business_sector || '',
-          transitionGoal: data.transition_goal || '',
-          experienceLevel: data.experience_lvl || '',
-          status: data.status || 'standard',
-        });
-
-        // 👇 Обновляем пользователя, добавляя user_id
-        updateUser({
-          ...user,
-          user_id: data.user_id,
-        });
-      }
-    };
-
-    loadProfile();
-  }, [user, updateUser]);
-
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 dark:text-gray-100 py-12 text-center">
-        <p>{t('noUserData') || 'No user data available. Please log in.'}</p>
-      </div>
-    );
-  }
+    setProfileData({
+      region: user.region || '',
+      businessSector: user.business_sector || '',
+      transitionGoal: user.transition_goal || '',
+      experienceLevel: user.experience_level || '',
+      status: user.status || 'standard',
+      telegram: (user as any).telegram || '',
+      user_text: (user as any).user_text || ''
+    });
+  }, [user]);
 
   const handleSave = async () => {
-    const { error } = await supabase
+    setIsSaving(true);
+    setLoadingText(loadingPhrases[Math.floor(Math.random() * loadingPhrases.length)]);
+
+    const { data, error } = await supabase
       .from('users')
       .update({
         region: profileData.region,
@@ -72,79 +67,143 @@ export const Profile: React.FC = () => {
         transition_goal: profileData.transitionGoal,
         experience_lvl: profileData.experienceLevel,
         status: profileData.status,
+        telegram: profileData.telegram,
+        user_text: profileData.user_text
       })
-      .eq('email', user.email);
+      .eq('email', user.email)
+      .select()
+      .single();
 
     if (error) {
-      console.error('❌ Ошибка обновления пользователя:', error.message);
-    } else {
-      updateUser({ ...user, ...profileData });
-      setIsEditing(false);
+      console.error('Ошибка обновления:', error.message);
+      setIsSaving(false);
+      return;
     }
+
+    updateUser({
+      user_id: data.user_id ?? data.id,
+      email: data.email,
+      region: data.region,
+      business_sector: data.business_sector,
+      transition_goal: data.transition_goal,
+      experience_level: data.experience_lvl,
+      status: data.status,
+      telegram: data.telegram,
+      user_text: data.user_text
+    });
+
+    setTimeout(() => {
+      setIsSaving(false);
+      setIsEditing(false);
+    }, 5000 + Math.random() * 5000);
   };
 
+  if (!user) {
+    return <div className="min-h-screen bg-gradient-to-br from-[#100018] via-[#070111] to-black text-white flex justify-center items-center text-lg">Нет данных</div>;
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 dark:text-gray-100 py-12">
+    <div className="min-h-screen bg-gradient-to-br from-[#100018] via-[#070111] to-black text-white py-12">
       <div className="max-w-3xl mx-auto px-4">
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <div className="flex items-center space-x-4 mb-6">
-              <div className="bg-blue-100 dark:bg-blue-900 p-3 rounded-full">
-                <UserIcon className="h-8 w-8 text-blue-600 dark:text-blue-300" />
-              </div>
-              <h2 className="text-2xl font-bold">{t('profileInfo')}</h2>
+        <div className="bg-zinc-900 shadow-xl rounded-xl p-8">
+          <div className="flex items-center space-x-6 mb-8">
+            <img src={generateAvatarUrl(user.user_id.toString())} alt="Avatar" className="w-20 h-20 rounded-full border-4 border-indigo-600 shadow-md" />
+            <div>
+              <h2 className="text-3xl font-bold">{t('profileInfo') || 'Профиль'}</h2>
+              <p className="text-gray-400">{user.email}</p>
             </div>
+          </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium">{t('email')}</label>
-                <p className="mt-1 text-lg">{user.email}</p>
-              </div>
-
+          {isSaving ? (
+            <div className="text-center py-12 animate-pulse">
+              <p className="text-xl">{loadingText}</p>
+              <p className="text-sm text-gray-400 mt-2">Подождите, данные сохраняются...</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
               {[
                 { key: 'region', label: t('regionLabel'), options: REGIONS },
                 { key: 'businessSector', label: t('businessSectorLabel'), options: BUSINESS_SECTORS },
                 { key: 'transitionGoal', label: t('transitionGoalLabel'), options: TRANSITION_GOALS },
                 { key: 'experienceLevel', label: t('experienceLevelLabel'), options: EXPERIENCE_LEVELS },
-                { key: 'status', label: t('statusLabel'), options: ['standard', 'plus', 'admin'] },
+                { key: 'status', label: t('statusLabel'), options: ['standard', 'plus', 'admin'] }
               ].map(({ key, label, options }) => (
                 <div key={key}>
-                  <label className="block text-sm font-medium">{label}</label>
+                  <label className="block text-sm font-semibold mb-1">{label}</label>
                   {isEditing ? (
                     <select
                       value={(profileData as any)[key]}
-                      onChange={(e) => setProfileData({ ...profileData, [key]: e.target.value })}
-                      className="mt-1 block w-full rounded-md border dark:bg-gray-700 dark:text-gray-100"
+                      onChange={(e) => setProfileData(prev => ({ ...prev, [key]: e.target.value }))}
+                      className="w-full rounded-md px-3 py-2 bg-zinc-800 border border-zinc-700 text-white"
                     >
-                      <option value="">{t(`select${key.charAt(0).toUpperCase() + key.slice(1)}`)}</option>
-                      {options.map((option) => (
+                      <option value="">Выбрать...</option>
+                      {options.map(option => (
                         <option key={option} value={option}>{option}</option>
                       ))}
                     </select>
                   ) : (
-                    <p className="mt-1 text-lg">{(profileData as any)[key]}</p>
+                    <p className="text-lg text-zinc-300">{(profileData as any)[key] || '—'}</p>
                   )}
                 </div>
               ))}
-            </div>
 
-            <div className="mt-6">
-              {isEditing ? (
-                <div className="flex gap-3">
-                  <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                    {t('saveBtn')}
+              <div>
+                <label className="block text-sm font-semibold mb-1">Telegram</label>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    placeholder="@example"
+                    value={profileData.telegram}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, telegram: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-md bg-zinc-800 border border-zinc-700 text-white"
+                  />
+                ) : (
+                  <p className="text-lg text-zinc-300">{profileData.telegram || '—'}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold mb-1">О себе / о бизнесе</label>
+                {isEditing ? (
+                  <textarea
+                    rows={4}
+                    placeholder="Расскажи о себе или бизнесе..."
+                    value={profileData.user_text}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, user_text: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-md bg-zinc-800 border border-zinc-700 text-white"
+                  />
+                ) : (
+                  <p className="text-lg text-zinc-300 whitespace-pre-line">{profileData.user_text || '—'}</p>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-4 pt-6">
+                {isEditing ? (
+                  <>
+                    <button
+                      onClick={handleSave}
+                      className="px-5 py-2 rounded bg-indigo-600 hover:bg-indigo-700 transition"
+                    >
+                      Сохранить
+                    </button>
+                    <button
+                      onClick={() => setIsEditing(false)}
+                      className="px-5 py-2 border border-zinc-600 rounded hover:bg-zinc-800 transition"
+                    >
+                      Отмена
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 rounded transition"
+                  >
+                    Редактировать
                   </button>
-                  <button onClick={() => setIsEditing(false)} className="px-4 py-2 border rounded hover:bg-gray-100 dark:hover:bg-gray-700">
-                    {t('cancelBtn')}
-                  </button>
-                </div>
-              ) : (
-                <button onClick={() => setIsEditing(true)} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                  {t('editProfileBtn')}
-                </button>
-              )}
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

@@ -4,68 +4,80 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-
-const BUSINESS_SECTORS = [
-  'IT & Technology', 'Food & Beverage', 'Retail', 'Healthcare',
-  'Education', 'Manufacturing', 'Services', 'Eco & Sustainability'
-];
-
-const REGIONS = [
-  'North America', 'Europe', 'Asia Pacific', 'Latin America', 'Middle East', 'Africa'
-];
-
-const TRANSITION_GOALS = [
-  'Expand to new markets', 'Go eco-friendly', 'Automate processes',
-  'Digital transformation', 'Diversify product line'
-];
-
-const EXPERIENCE_LEVELS = ['Beginner', 'Intermediate', 'Advanced'];
+import { Loader2 } from 'lucide-react';
+import { REGIONS, BUSINESS_SECTORS, TRANSITION_GOALS, EXPERIENCE_LEVELS } from '../contexts/constants.ts';
 
 export const Register: React.FC = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
-    email: '', password: '', confirmPassword: '',
-    region: '', businessSector: '', transitionGoal: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    region: '',
+    businessSector: '',
+    transitionGoal: '',
     experienceLevel: ''
   });
+
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.email) newErrors.email = 'Email is required';
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Invalid email format';
+    if (!formData.email) newErrors.email = 'Введите email';
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Неверный формат email';
 
-    if (!formData.password) newErrors.password = 'Password is required';
-    else if (formData.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
+    if (!formData.password) newErrors.password = 'Введите пароль';
+    else if (formData.password.length < 6) newErrors.password = 'Минимум 6 символов';
 
-    if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
+    if (formData.password !== formData.confirmPassword)
+      newErrors.confirmPassword = 'Пароли не совпадают';
 
-    if (!formData.region) newErrors.region = 'Please select a region';
-    if (!formData.businessSector) newErrors.businessSector = 'Please select a sector';
-    if (!formData.transitionGoal) newErrors.transitionGoal = 'Please select a goal';
-    if (!formData.experienceLevel) newErrors.experienceLevel = 'Please select experience level';
+    if (!formData.region) newErrors.region = 'Выберите регион';
+    if (!formData.businessSector) newErrors.businessSector = 'Выберите сектор';
+    if (!formData.transitionGoal) newErrors.transitionGoal = 'Укажите цель';
+    if (!formData.experienceLevel) newErrors.experienceLevel = 'Укажите опыт';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const handleChange = (field: string, value: string) => {
+    setFormData({ ...formData, [field]: value });
+    setErrors({ ...errors, [field]: '' });
+  };
+
+  const getPasswordStrength = () => {
+    const { password } = formData;
+    let score = 0;
+    if (password.length >= 8) score++;
+    if (/[A-Z]/.test(password)) score++;
+    if (/[a-z]/.test(password)) score++;
+    if (/[0-9]/.test(password)) score++;
+    if (/[^A-Za-z0-9]/.test(password)) score++;
+
+    if (score <= 2) return { level: 'Слабый', color: 'bg-red-500', width: 'w-1/3', tips: ['Добавьте цифры и спецсимволы', 'Минимум 8 символов'] };
+    if (score === 3 || score === 4) return { level: 'Средний', color: 'bg-yellow-500', width: 'w-2/3', tips: ['Добавьте больше символов', 'Комбинируйте заглавные и строчные буквы'] };
+    return { level: 'Надежный', color: 'bg-green-500', width: 'w-full', tips: [] };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
 
+    setLoading(true);
+
     try {
-      // 1. Регистрация в auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password
       });
 
-      if (authError || !authData.user) throw new Error(authError?.message || 'Signup failed');
+      if (authError || !authData.user) throw new Error(authError?.message || 'Ошибка регистрации');
 
-      // 2. Добавляем профиль в таблицу users
       const { data: profileData, error: profileError } = await supabase
         .from('users')
         .insert([{
@@ -74,142 +86,122 @@ export const Register: React.FC = () => {
           business_sector: formData.businessSector,
           transition_goal: formData.transitionGoal,
           experience_lvl: formData.experienceLevel,
-          status: 'standard' // Принудительно
+          status: 'standard'
         }])
         .select()
         .single();
 
-      if (profileError || !profileData) throw new Error(profileError?.message || 'Failed to create user profile');
+      if (profileError || !profileData) throw new Error(profileError?.message || 'Ошибка создания профиля');
 
-      login('supabase-token', {
-        ...profileData,
-        user_id: profileData.id
-      });
-
-      toast.success('Registration successful!');
-      navigate('/profile');
-
+      toast.success('🎉 Аккаунт создан! Подтвердите email по ссылке в письме.');
+      setTimeout(() => navigate('/login'), 2000);
     } catch (err: any) {
-      console.error('❌ Registration error:', err);
-      toast.error(err.message || 'Registration failed');
+      console.error('❌ Ошибка:', err.message);
+      toast.error(err.message || 'Что-то пошло не так');
     }
+
+    setLoading(false);
   };
 
+  const passwordStrength = getPasswordStrength();
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 dark:text-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="text-center text-3xl font-bold text-gray-900 dark:text-gray-100">
-          Create your account
-        </h2>
+    <div className="min-h-screen bg-gradient-to-br from-black to-gray-900 text-white flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
+        <h2 className="text-3xl font-bold mb-2">Создай аккаунт</h2>
+        <p className="text-gray-400">Адаптируй бизнес под тренды вместе с BizIdeas</p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white dark:bg-gray-800 py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-medium">Email</label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className={`mt-1 block w-full rounded-md border ${errors.email ? 'border-red-500' : 'border-gray-300'} px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100`}
-              />
-              {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
-            </div>
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md bg-gray-900 rounded-xl shadow-xl p-8 space-y-6">
+        <form className="space-y-5" onSubmit={handleSubmit}>
+          <div className="grid gap-5">
+            <InputField label="Email" type="email" value={formData.email} onChange={(val) => handleChange('email', val)} error={errors.email} />
+            <InputField label="Пароль" type="password" value={formData.password} onChange={(val) => handleChange('password', val)} error={errors.password} />
+            <PasswordStrengthIndicator passwordStrength={passwordStrength} />
+            <InputField label="Подтвердите пароль" type="password" value={formData.confirmPassword} onChange={(val) => handleChange('confirmPassword', val)} error={errors.confirmPassword} />
+          </div>
 
-            {/* Password */}
-            <div>
-              <label className="block text-sm font-medium">Password</label>
-              <input
-                type="password"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className={`mt-1 block w-full rounded-md border ${errors.password ? 'border-red-500' : 'border-gray-300'} px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100`}
-              />
-              {errors.password && <p className="text-red-500 text-sm">{errors.password}</p>}
-            </div>
+          {[{
+            label: 'Регион', field: 'region', options: REGIONS
+          }, {
+            label: 'Сектор бизнеса', field: 'businessSector', options: BUSINESS_SECTORS
+          }, {
+            label: 'Цель перехода', field: 'transitionGoal', options: TRANSITION_GOALS
+          }, {
+            label: 'Уровень опыта', field: 'experienceLevel', options: EXPERIENCE_LEVELS
+          }].map(({ label, field, options }) => (
+            <SelectField
+              key={field}
+              label={label}
+              value={(formData as any)[field]}
+              onChange={(val) => handleChange(field, val)}
+              options={options}
+              error={errors[field]}
+            />
+          ))}
 
-            {/* Confirm Password */}
-            <div>
-              <label className="block text-sm font-medium">Confirm Password</label>
-              <input
-                type="password"
-                value={formData.confirmPassword}
-                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                className={`mt-1 block w-full rounded-md border ${errors.confirmPassword ? 'border-red-500' : 'border-gray-300'} px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100`}
-              />
-              {errors.confirmPassword && <p className="text-red-500 text-sm">{errors.confirmPassword}</p>}
-            </div>
-
-            {/* Region */}
-            <div>
-              <label className="block text-sm font-medium">Region</label>
-              <select
-                value={formData.region}
-                onChange={(e) => setFormData({ ...formData, region: e.target.value })}
-                className={`mt-1 block w-full rounded-md border ${errors.region ? 'border-red-500' : 'border-gray-300'} px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100`}
-              >
-                <option value="">Select region</option>
-                {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
-              </select>
-              {errors.region && <p className="text-red-500 text-sm">{errors.region}</p>}
-            </div>
-
-            {/* Business Sector */}
-            <div>
-              <label className="block text-sm font-medium">Business Sector</label>
-              <select
-                value={formData.businessSector}
-                onChange={(e) => setFormData({ ...formData, businessSector: e.target.value })}
-                className={`mt-1 block w-full rounded-md border ${errors.businessSector ? 'border-red-500' : 'border-gray-300'} px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100`}
-              >
-                <option value="">Select sector</option>
-                {BUSINESS_SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-              {errors.businessSector && <p className="text-red-500 text-sm">{errors.businessSector}</p>}
-            </div>
-
-            {/* Transition Goal */}
-            <div>
-              <label className="block text-sm font-medium">Transition Goal</label>
-              <select
-                value={formData.transitionGoal}
-                onChange={(e) => setFormData({ ...formData, transitionGoal: e.target.value })}
-                className={`mt-1 block w-full rounded-md border ${errors.transitionGoal ? 'border-red-500' : 'border-gray-300'} px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100`}
-              >
-                <option value="">Select goal</option>
-                {TRANSITION_GOALS.map(g => <option key={g} value={g}>{g}</option>)}
-              </select>
-              {errors.transitionGoal && <p className="text-red-500 text-sm">{errors.transitionGoal}</p>}
-            </div>
-
-            {/* Experience Level */}
-            <div>
-              <label className="block text-sm font-medium">Experience Level</label>
-              <select
-                value={formData.experienceLevel}
-                onChange={(e) => setFormData({ ...formData, experienceLevel: e.target.value })}
-                className={`mt-1 block w-full rounded-md border ${errors.experienceLevel ? 'border-red-500' : 'border-gray-300'} px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100`}
-              >
-                <option value="">Select level</option>
-                {EXPERIENCE_LEVELS.map(lvl => <option key={lvl} value={lvl}>{lvl}</option>)}
-              </select>
-              {errors.experienceLevel && <p className="text-red-500 text-sm">{errors.experienceLevel}</p>}
-            </div>
-
-            {/* Submit */}
-            <div>
-              <button
-                type="submit"
-                className="w-full flex justify-center py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
-                Register
-              </button>
-            </div>
-          </form>
-        </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full flex justify-center items-center gap-2 mt-6 py-2 px-4 font-semibold rounded-md bg-blue-600 hover:bg-blue-700 transition duration-200"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Регистрируем...
+              </>
+            ) : (
+              'Зарегистрироваться'
+            )}
+          </button>
+        </form>
       </div>
     </div>
   );
 };
+
+const InputField = ({ label, type, value, onChange, error }: any) => (
+  <div>
+    <label className="block text-sm font-medium mb-1">{label}</label>
+    <input
+      type={type}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={`w-full px-3 py-2 rounded-md bg-gray-800 text-white border focus:outline-none focus:ring-2 focus:ring-blue-500 transition ${error ? 'border-red-500' : 'border-gray-700'}`}
+    />
+    {error && <p className="text-sm text-red-400 mt-1">{error}</p>}
+  </div>
+);
+
+const SelectField = ({ label, value, onChange, options, error }: any) => (
+  <div>
+    <label className="block text-sm font-medium mb-1">{label}</label>
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={`w-full px-3 py-2 rounded-md bg-gray-800 text-white border focus:outline-none focus:ring-2 focus:ring-blue-500 transition ${error ? 'border-red-500' : 'border-gray-700'}`}
+    >
+      <option value="">Выберите...</option>
+      {options.map((opt: string) => (
+        <option key={opt} value={opt}>{opt}</option>
+      ))}
+    </select>
+    {error && <p className="text-sm text-red-400 mt-1">{error}</p>}
+  </div>
+);
+
+const PasswordStrengthIndicator = ({ passwordStrength }: any) => (
+  <>
+    <div className="mt-2 w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+      <div className={`h-2 ${passwordStrength.color} ${passwordStrength.width} transition-all duration-700 ease-in-out rounded-full`} />
+    </div>
+    <p className="text-sm mt-1">Уровень: <span className="font-semibold">{passwordStrength.level}</span></p>
+    {passwordStrength.tips.length > 0 && (
+      <ul className="text-xs text-gray-400 mt-1 list-disc ml-5">
+        {passwordStrength.tips.map((tip: string, idx: number) => (
+          <li key={idx}>{tip}</li>
+        ))}
+      </ul>
+    )}
+  </>
+);
