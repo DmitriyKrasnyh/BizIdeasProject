@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -36,20 +35,17 @@ export const Profile: React.FC = () => {
     businessSector: '',
     transitionGoal: '',
     experienceLevel: '',
-    status: 'standard',
     telegram: '',
     user_text: ''
   });
 
   useEffect(() => {
     if (!user) return;
-
     setProfileData({
       region: user.region || '',
       businessSector: user.business_sector || '',
       transitionGoal: user.transition_goal || '',
       experienceLevel: user.experience_level || '',
-      status: user.status || 'standard',
       telegram: (user as any).telegram || '',
       user_text: (user as any).user_text || ''
     });
@@ -66,7 +62,6 @@ export const Profile: React.FC = () => {
         business_sector: profileData.businessSector,
         transition_goal: profileData.transitionGoal,
         experience_lvl: profileData.experienceLevel,
-        status: profileData.status,
         telegram: profileData.telegram,
         user_text: profileData.user_text
       })
@@ -87,9 +82,9 @@ export const Profile: React.FC = () => {
       business_sector: data.business_sector,
       transition_goal: data.transition_goal,
       experience_level: data.experience_lvl,
-      status: data.status,
       telegram: data.telegram,
-      user_text: data.user_text
+      user_text: data.user_text,
+      status: user.status // не редактируем
     });
 
     setTimeout(() => {
@@ -103,14 +98,22 @@ export const Profile: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#100018] via-[#070111] to-black text-white py-12">
-      <div className="max-w-3xl mx-auto px-4">
-        <div className="bg-zinc-900 shadow-xl rounded-xl p-8">
-          <div className="flex items-center space-x-6 mb-8">
-            <img src={generateAvatarUrl(user.user_id.toString())} alt="Avatar" className="w-20 h-20 rounded-full border-4 border-indigo-600 shadow-md" />
-            <div>
-              <h2 className="text-3xl font-bold">{t('profileInfo') || 'Профиль'}</h2>
-              <p className="text-gray-400">{user.email}</p>
+    <div className="min-h-screen bg-gradient-to-br from-[#100018] via-[#070111] to-black text-white py-10 px-4 sm:px-6">
+      <div className="max-w-2xl mx-auto">
+        <div className="bg-zinc-900 shadow-xl rounded-xl p-6 sm:p-8">
+          <div className="flex flex-col sm:flex-row items-center sm:space-x-6 mb-6">
+            <img src={generateAvatarUrl(user.user_id.toString())} alt="Avatar" className="w-24 h-24 rounded-full border-4 border-indigo-600 shadow-md" />
+            <div className="mt-4 sm:mt-0">
+              <h2 className="text-2xl sm:text-3xl font-bold">{t('profileInfo') || 'Профиль'}</h2>
+              <p className="text-gray-400 text-sm sm:text-base break-all">{user.email}</p>
+              <a
+                href="https://t.me/BizIdeasTrendsBot"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-400 text-sm hover:underline mt-2 block"
+              >
+                👉 Использовать бота @BizIdeasTrendsBot
+              </a>
             </div>
           </div>
 
@@ -121,13 +124,15 @@ export const Profile: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-6">
-              {[
-                { key: 'region', label: t('regionLabel'), options: REGIONS },
-                { key: 'businessSector', label: t('businessSectorLabel'), options: BUSINESS_SECTORS },
-                { key: 'transitionGoal', label: t('transitionGoalLabel'), options: TRANSITION_GOALS },
-                { key: 'experienceLevel', label: t('experienceLevelLabel'), options: EXPERIENCE_LEVELS },
-                { key: 'status', label: t('statusLabel'), options: ['standard', 'plus', 'admin'] }
-              ].map(({ key, label, options }) => (
+              {[{
+                key: 'region', label: t('regionLabel'), options: REGIONS
+              }, {
+                key: 'businessSector', label: t('businessSectorLabel'), options: BUSINESS_SECTORS
+              }, {
+                key: 'transitionGoal', label: t('transitionGoalLabel'), options: TRANSITION_GOALS
+              }, {
+                key: 'experienceLevel', label: t('experienceLevelLabel'), options: EXPERIENCE_LEVELS
+              }].map(({ key, label, options }) => (
                 <div key={key}>
                   <label className="block text-sm font-semibold mb-1">{label}</label>
                   {isEditing ? (
@@ -177,7 +182,7 @@ export const Profile: React.FC = () => {
                 )}
               </div>
 
-              <div className="flex justify-end gap-4 pt-6">
+              <div className="flex justify-end gap-4 pt-4">
                 {isEditing ? (
                   <>
                     <button

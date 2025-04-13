@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Tag } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
-import mascotImg from './logos/mascot.png'; // путь к изображению маскота
-import {BUSINESS_SECTORS} from '../contexts/constants.ts';
-
+import mascotImg from './logos/mascot.png';
+import { BUSINESS_SECTORS } from '../contexts/constants.ts';
 
 interface Idea {
   idea_id: number;
@@ -26,9 +25,10 @@ export const Ideas: React.FC = () => {
   const [selectedIdeaId, setSelectedIdeaId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState<number | null>(null);
-  const [mascotReact, setMascotReact] = useState(false); // флаг анимации
+  const [mascotReact, setMascotReact] = useState(false);
   const { t } = useLanguage();
   const { user } = useAuth();
+  const touchStartX = useRef<number | null>(null);
 
   useEffect(() => {
     const loadIdeas = async () => {
@@ -73,8 +73,8 @@ export const Ideas: React.FC = () => {
   const toggleTag = (tag: string) => {
     setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
     setCurrentPage(1);
-    setMascotReact(true); // запускаем анимацию
-    setTimeout(() => setMascotReact(false), 800); // сброс флага
+    setMascotReact(true);
+    setTimeout(() => setMascotReact(false), 800);
   };
 
   const handleChooseIdea = async () => {
@@ -103,6 +103,18 @@ export const Ideas: React.FC = () => {
     setSaving(false);
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const diff = e.changedTouches[0].clientX - touchStartX.current;
+    if (diff > 50 && currentPage > 1) setCurrentPage(prev => prev - 1);
+    if (diff < -50 && currentPage < Math.ceil(ideas.length / PAGE_SIZE)) setCurrentPage(prev => prev + 1);
+    touchStartX.current = null;
+  };
+
   const filteredIdeas = ideas.filter(idea =>
     selectedTags.length === 0 || idea.tags?.some(tag => selectedTags.includes(tag))
   );
@@ -111,12 +123,16 @@ export const Ideas: React.FC = () => {
   const currentIdeas = filteredIdeas.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#100018] via-[#070111] to-black text-white py-12 relative overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 z-10 relative">
-        <h1 className="text-4xl font-bold mb-8">{t('trendingIdeas') || 'Trending Business Ideas'}</h1>
+    <div
+      className="min-h-screen bg-gradient-to-br from-[#100018] via-[#070111] to-black text-white py-10 px-4 relative overflow-hidden"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      <div className="max-w-6xl mx-auto relative z-10">
+        <h1 className="text-3xl sm:text-4xl font-bold mb-6">{t('trendingIdeas') || 'Trending Business Ideas'}</h1>
 
-        <div className="mb-8">
-          <h2 className="text-lg font-semibold mb-4">{t('filterByTags') || 'Filter by Tags'}</h2>
+        <div className="mb-6">
+          <h2 className="text-base sm:text-lg font-semibold mb-3">{t('filterByTags') || 'Filter by Tags'}</h2>
           <div className="flex flex-wrap gap-2">
             {BUSINESS_SECTORS.map(tag => (
               <button
@@ -138,7 +154,7 @@ export const Ideas: React.FC = () => {
         {loading ? (
           <div className="text-center text-gray-400">Загрузка идей...</div>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 relative z-10">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {currentIdeas.map(idea => (
               <div
                 key={idea.idea_id}
@@ -163,7 +179,7 @@ export const Ideas: React.FC = () => {
         )}
 
         {pageCount > 1 && (
-          <div className="flex justify-center mt-10 gap-3 z-10 relative">
+          <div className="flex justify-center mt-10 gap-3">
             {Array.from({ length: pageCount }, (_, i) => i + 1).map(page => (
               <button
                 key={page}
@@ -181,24 +197,15 @@ export const Ideas: React.FC = () => {
         )}
       </div>
 
-      {/* Маскот с анимацией при выборе темы */}
       <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 z-0 pointer-events-none">
-        <div className={`relative w-[600px] h-[350px] overflow-hidden transition-transform duration-500 ${mascotReact ? 'animate-wiggle' : ''}`}>
+        <div className={`relative w-72 h-40 sm:w-[600px] sm:h-[350px] overflow-hidden transition-transform duration-500 ${mascotReact ? 'animate-wiggle' : ''}`}>
           <img src={mascotImg} alt="Mascot" className="w-full h-auto" />
         </div>
       </div>
 
-
-      {/* Модалка: подробности идеи */}
       {expanded && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
-          onClick={() => setExpanded(null)}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            className="relative max-w-xl w-full bg-gray-900 text-white rounded-xl p-6 shadow-lg"
-          >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setExpanded(null)}>
+          <div onClick={e => e.stopPropagation()} className="relative max-w-xl w-full bg-gray-900 text-white rounded-xl p-6 shadow-lg">
             <button
               onClick={handleChooseIdea}
               disabled={saving}
