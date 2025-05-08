@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   LayoutDashboard,
   LogOut,
+  Zap
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -19,6 +20,7 @@ const BASE_LINKS = [
   { to: '/ideas',     label: 'Идеи',      icon: <Sprout className="w-4 h-4" /> },
   { to: '/assistant', label: 'AI',        icon: <Bot    className="w-4 h-4" /> },
   { to: '/analytics', label: 'Аналитика', icon: <BarChart2 className="w-4 h-4" /> },
+  { to: '/pricing',    label: 'Подписки',  icon: <Zap className="w-4 h-4" /> }
 ];
 
 /* ── утилита: бейдж с ролью ── */

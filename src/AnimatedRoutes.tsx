@@ -13,6 +13,7 @@ import { Analytics }     from './pages/Analytics';
 import { Assistant }     from './pages/Assistant';
 import { AdminPanel }    from './pages/AdminPanel';
 import { ResetPassword } from './pages/ResetPassword';
+import { Pricing }      from './pages/Pricing';
 
 /* guards & ui */
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -75,6 +76,7 @@ export function AnimatedRoutes() {
               {/* informational (открытые) */}
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/assistant" element={<Assistant />} />
+              <Route path="/pricing"   element={<Pricing />} />
 
               {/* protected */}
               <Route

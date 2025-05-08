@@ -131,8 +131,7 @@ export const Home: React.FC = () => {
         AI \ Business \ Trends \ Telegram
       </div>
 
-      {/* ---------- «заглушка» поверх watermark ---------- */}
-      <div className="fixed bottom-0 right-0 w-48 h-10 bg-black pointer-events-none" />
+      
 
       {/* ---------- плавающие кнопки ---------- */}
       <FloatPanel
