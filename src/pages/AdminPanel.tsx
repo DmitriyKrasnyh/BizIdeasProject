@@ -1,15 +1,24 @@
 // src/pages/AdminPanel.tsx
 import React, { useEffect, useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import classNames from 'classnames';
+import {
+  Database,
+  LayoutDashboard,
+  Plus,
+  Save,
+  Search,
+  ShieldOff,
+  CornerUpLeft,
+} from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 import {
   REGIONS,
   BUSINESS_SECTORS,
   TRANSITION_GOALS,
   EXPERIENCE_LEVELS,
-  STATUS_OPTIONS
+  STATUS_OPTIONS,
 } from '../contexts/constants';
 
 const TABLES = [
@@ -20,293 +29,399 @@ const TABLES = [
   'userhistory',
   'subscription',
   'translations',
-  'er-diagram'
+  'er-diagram',
+] as const;
+
+const LOCKED_FIELDS = [
+  'user_id',
+  'email',
+  'idea_id',
+  'parse_id',
+  'activity_id',
+  'sub_id',
 ];
 
-const LOCKED_FIELDS = ['user_id', 'email', 'idea_id', 'parse_id', 'activity_id', 'sub_id'];
+type SearchState = {
+  [k: string]: { column: string; query: string };
+};
 
 export const AdminPanel: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [adminData, setAdminData] = useState<{ [key: string]: any[] }>({});
-  const [searchQueries, setSearchQueries] = useState<{ [key: string]: { column: string; query: string } }>({});
-  const [editingCell, setEditingCell] = useState<{ table: string; rowIndex: number; column: string } | null>(null);
-  const [editValue, setEditValue] = useState<string>('');
-  const [newRow, setNewRow] = useState<{ [key: string]: any }>({});
-  const [loading, setLoading] = useState(true);
-  const [isAdminConfirmed, setIsAdminConfirmed] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>('users');
+  /* ───── state ───── */
+  const [data, setData] = useState<{ [T in (typeof TABLES)[number]]?: any[] }>(
+    {},
+  );
+  const [active, setActive] = useState<(typeof TABLES)[number]>('users');
+  const [search, setSearch] = useState<SearchState>({});
+  const [editCell, setEditCell] = useState<{
+    table: string;
+    row: number;
+    column: string;
+  } | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [newRow, setNewRow] = useState<Record<string, any>>({});
   const [zoom, setZoom] = useState(100);
+  const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
+  /* ───── admin check ───── */
   useEffect(() => {
-    const checkAdmin = async () => {
+    (async () => {
       if (!user?.email) return;
-      const { data } = await supabase.from('users').select('status').eq('email', user.email).single();
-      setIsAdminConfirmed(data?.status === 'admin');
+      const { data } = await supabase
+        .from('users')
+        .select('status')
+        .eq('email', user.email)
+        .single();
+      setIsAdmin(data?.status === 'admin');
       setLoading(false);
-    };
-    setTimeout(checkAdmin, 1000);
+    })();
   }, [user]);
 
+  /* ───── fetch tables ───── */
   useEffect(() => {
-    if (!isAdminConfirmed || activeTab === 'er-diagram') return;
+    if (!isAdmin || active === 'er-diagram') return;
+    (async () => {
+      const { data: rows } = await supabase.from(active).select('*');
+      if (rows) setData(prev => ({ ...prev, [active]: rows }));
+    })();
+  }, [active, isAdmin]);
 
-    const fetchAll = async () => {
-      const result: { [key: string]: any[] } = {};
-      for (const table of TABLES.filter(t => t !== 'er-diagram')) {
-        const { data } = await supabase.from(table).select('*');
-        if (data) result[table] = data;
-      }
-      setAdminData(result);
-    };
-
-    fetchAll();
-  }, [isAdminConfirmed]);
-
-  const handleSearchChange = (table: string, column: string, query: string) => {
-    setSearchQueries(prev => ({ ...prev, [table]: { column, query: query.toLowerCase() } }));
-  };
-
-  const handleEditStart = (table: string, rowIndex: number, column: string, value: string) => {
-    if (LOCKED_FIELDS.includes(column)) return;
-    setEditingCell({ table, rowIndex, column });
-    setEditValue(value);
-  };
-
-  const handleEditSave = async () => {
-    if (!editingCell) return;
-    const { table, rowIndex, column } = editingCell;
-    const original = adminData[table][rowIndex];
-    if (String(original[column]) === editValue) {
-      setEditingCell(null);
-      return;
-    }
-
-    const primaryKey = Object.keys(original)[0];
-    const primaryValue = original[primaryKey];
-
-    const updated = [...adminData[table]];
-    updated[rowIndex] = { ...original, [column]: editValue };
-    setAdminData({ ...adminData, [table]: updated });
-    setEditingCell(null);
-
-    const { error } = await supabase.from(table).update({ [column]: editValue }).eq(primaryKey, primaryValue);
-    if (error) console.error('❌ Ошибка обновления:', error);
-    else console.log(`✅ Обновлено в ${table}`);
-  };
-
-  const getSelectOptions = (column: string) => {
-    if (column === 'region') return REGIONS;
-    if (column === 'business_sector') return BUSINESS_SECTORS;
-    if (column === 'transition_goal') return TRANSITION_GOALS;
-    if (column === 'experience_level' || column === 'experience_lvl') return EXPERIENCE_LEVELS;
-    if (column === 'status') return STATUS_OPTIONS;
+  /* ───── helpers ───── */
+  const opts = (col: string) => {
+    if (col === 'region') return REGIONS;
+    if (col === 'business_sector') return BUSINESS_SECTORS;
+    if (col === 'transition_goal') return TRANSITION_GOALS;
+    if (col === 'experience_level' || col === 'experience_lvl')
+      return EXPERIENCE_LEVELS;
+    if (col === 'status') return STATUS_OPTIONS;
     return null;
   };
 
-  const handleNewRowChange = (key: string, value: any) => {
-    setNewRow(prev => ({ ...prev, [key]: value }));
+  const beginEdit = (t: string, r: number, c: string, v: any) => {
+    if (LOCKED_FIELDS.includes(c)) return;
+    setEditCell({ table: t, row: r, column: c });
+    setEditValue(String(v ?? ''));
   };
 
-  const handleAddNewRow = async () => {
-    if (!newRow || !Object.keys(newRow).length) return;
-    try {
-      const { error } = await supabase.from(activeTab).insert([newRow]);
-      if (error) {
-        console.error('❌ Ошибка добавления:', error.message);
-      } else {
-        setNewRow({});
-        const { data } = await supabase.from(activeTab).select('*');
-        setAdminData(prev => ({ ...prev, [activeTab]: data || [] }));
-        console.log('✅ Новая запись добавлена');
-      }
-    } catch (e) {
-      console.error(e);
+  const saveEdit = async () => {
+    if (!editCell) return;
+    const { table, row, column } = editCell;
+    const current = data[table]![row];
+    if (String(current[column]) === editValue) {
+      setEditCell(null);
+      return;
     }
+    const pk = Object.keys(current)[0];
+    const pkVal = current[pk];
+
+    await supabase.from(table).update({ [column]: editValue }).eq(pk, pkVal);
+    const updated = [...data[table]!];
+    updated[row] = { ...current, [column]: editValue };
+    setData(prev => ({ ...prev, [table]: updated }));
+    setEditCell(null);
   };
 
-  if (loading) {
-    return <div className="min-h-screen flex justify-center items-center text-white text-lg animate-pulse">Загрузка панели администратора...</div>;
-  }
+  const addRow = async () => {
+    if (!Object.keys(newRow).length) return;
+    await supabase.from(active).insert([newRow]);
+    const { data: rows } = await supabase.from(active).select('*');
+    setData(prev => ({ ...prev, [active]: rows || [] }));
+    setNewRow({});
+  };
 
-  if (!isAdminConfirmed) {
-    return <div className="text-red-500 text-center text-2xl mt-10">⛔ Доступ запрещён</div>;
-  }
+  /* ───── ui ───── */
+  if (loading)
+    return (
+      <div className="min-h-screen flex items-center justify-center text-white animate-pulse">
+        Загрузка…
+      </div>
+    );
 
-  return (
-    <div className="min-h-screen flex bg-gradient-to-br from-black via-gray-900 to-gray-950">
-      <div className="w-60 min-h-screen bg-zinc-950 p-5 shadow-xl border-r border-zinc-800">
-        <h2 className="text-white text-xl font-semibold mb-6">📊 Таблицы</h2>
-        {TABLES.map((table) => (
-          <button
-            key={table}
-            onClick={() => setActiveTab(table)}
-            className={classNames(
-              'block w-full text-left px-4 py-2 mb-2 rounded-lg transition text-sm font-medium',
-              activeTab === table ? 'bg-indigo-600 text-white' : 'bg-zinc-800 text-gray-300 hover:bg-zinc-700'
-            )}
-          >
-            {table === 'er-diagram' ? 'ER-диаграмма' : table}
-          </button>
-        ))}
+  if (!isAdmin)
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-red-500 gap-4">
+        <ShieldOff className="w-10 h-10" />
+        <p className="text-2xl font-semibold">Доступ запрещён</p>
         <button
           onClick={() => navigate('/')}
-          className="mt-10 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition"
+          className="px-5 py-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white"
         >
-          ⬅️ На главную
+          На главную
         </button>
       </div>
+    );
 
-      <div className="flex-1 p-6 overflow-auto">
-        <h1 className="text-3xl font-bold text-white mb-6">{activeTab === 'er-diagram' ? 'ER-диаграмма' : activeTab}</h1>
+  return (
+    <div className="min-h-screen flex bg-gradient-to-br from-[#0e0e11] via-[#09090b] to-black text-gray-100">
+      {/* sidebar */}
+      <aside className="w-64 shrink-0 border-r border-zinc-800 bg-zinc-950/95 backdrop-blur-sm p-5 space-y-8">
+        <div className="flex items-center gap-2 text-lg font-bold">
+          <LayoutDashboard className="w-5 h-5 text-indigo-500" /> Admin Panel
+        </div>
 
-        {activeTab === 'er-diagram' ? (
-          <div className="bg-zinc-900 rounded-xl p-6 text-gray-300 text-center">
-            <h2 className="text-xl font-semibold mb-4">📐 Структура таблиц</h2>
-            <div className="relative">
-              <div className="flex justify-end gap-2 mb-2">
-                <button onClick={() => setZoom(zoom + 10)} className="bg-zinc-800 px-3 py-1 rounded text-white">+</button>
-                <button onClick={() => setZoom(zoom - 10)} className="bg-zinc-800 px-3 py-1 rounded text-white">−</button>
-              </div>
+        <nav className="space-y-2">
+          {TABLES.map(t => (
+            <button
+              key={t}
+              onClick={() => setActive(t)}
+              className={classNames(
+                'w-full flex items-center gap-2 px-4 py-2 rounded-lg text-sm capitalize transition',
+                active === t
+                  ? 'bg-indigo-600 text-white'
+                  : 'hover:bg-zinc-800 text-gray-300',
+              )}
+            >
+              <Database className="w-4 h-4 shrink-0" />
+              {t === 'er-diagram' ? 'ER-diagram' : t}
+            </button>
+          ))}
+        </nav>
+
+        <button
+          onClick={() => navigate('/')}
+          className="w-full mt-10 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 py-2 rounded-lg text-sm font-medium"
+        >
+          <CornerUpLeft className="w-4 h-4" />
+          На главную
+        </button>
+      </aside>
+
+      {/* content */}
+      <main className="flex-1 p-8 overflow-auto">
+        <h1 className="text-2xl font-bold mb-6 capitalize">
+          {active === 'er-diagram' ? 'ER-diagram' : active}
+        </h1>
+
+        {/* ER */}
+        {active === 'er-diagram' ? (
+          <section className="bg-zinc-900 rounded-xl p-6 shadow-xl">
+            <div className="flex justify-end gap-2 mb-2">
+              <button
+                onClick={() => setZoom(z => z + 10)}
+                className="bg-zinc-800 hover:bg-zinc-700 px-3 py-1 rounded"
+              >
+                +
+              </button>
+              <button
+                onClick={() => setZoom(z => z - 10)}
+                className="bg-zinc-800 hover:bg-zinc-700 px-3 py-1 rounded"
+              >
+                −
+              </button>
+            </div>
+            <div className="overflow-auto">
               <img
                 src="/er-diagram.svg"
-                alt="ER diagram"
-                className="mx-auto rounded border border-zinc-700 shadow-lg"
-                style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}
+                alt="er"
+                style={{
+                  transform: `scale(${zoom / 100})`,
+                  transformOrigin: 'top left',
+                }}
+                className="border border-zinc-700 rounded shadow-lg"
               />
             </div>
-          </div>
-        ) : adminData[activeTab]?.length > 0 ? (
-          <div className="bg-zinc-900 rounded-xl p-6 shadow-2xl">
-            <div className="flex gap-3 mb-4">
+          </section>
+        ) : data[active]?.length ? (
+          <>
+            {/* search */}
+            <div className="flex flex-wrap gap-3 mb-4">
               <select
-                className="bg-zinc-800 text-white rounded px-3 py-1"
-                value={searchQueries[activeTab]?.column || Object.keys(adminData[activeTab][0])[0]}
-                onChange={(e) => handleSearchChange(activeTab, e.target.value, searchQueries[activeTab]?.query || '')}
+                value={
+                  search[active]?.column ||
+                  Object.keys(data[active]![0])[0] ||
+                  ''
+                }
+                onChange={e =>
+                  setSearch(prev => ({
+                    ...prev,
+                    [active]: {
+                      column: e.target.value,
+                      query: search[active]?.query || '',
+                    },
+                  }))
+                }
+                className="bg-zinc-800 px-3 py-1 rounded text-sm"
               >
-                {Object.keys(adminData[activeTab][0]).map((key) => (
-                  <option key={key} value={key}>{key}</option>
+                {Object.keys(data[active]![0]).map(k => (
+                  <option key={k}>{k}</option>
                 ))}
               </select>
-              <input
-                type="text"
-                className="bg-zinc-800 text-white px-3 py-1 rounded w-full"
-                placeholder="🔍 Поиск..."
-                value={searchQueries[activeTab]?.query || ''}
-                onChange={(e) => handleSearchChange(activeTab, searchQueries[activeTab]?.column || '', e.target.value)}
-              />
+              <div className="relative flex-1 min-w-[180px]">
+                <Search className="w-4 h-4 absolute top-1/2 -translate-y-1/2 left-3 text-gray-400" />
+                <input
+                  placeholder="Поиск…"
+                  value={search[active]?.query || ''}
+                  onChange={e =>
+                    setSearch(prev => ({
+                      ...prev,
+                      [active]: {
+                        column:
+                          prev[active]?.column ||
+                          Object.keys(data[active]![0])[0],
+                        query: e.target.value.toLowerCase(),
+                      },
+                    }))
+                  }
+                  className="bg-zinc-800 pl-9 pr-3 py-1 rounded w-full text-sm"
+                />
+              </div>
             </div>
 
-            <table className="w-full border border-zinc-700 text-sm">
-              <thead>
-                <tr>
-                  {Object.keys(adminData[activeTab][0]).map((key) => (
-                    <th key={key} className="p-2 border border-zinc-700 bg-zinc-800 text-white">{key}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {adminData[activeTab]
-                  .filter((row) =>
-                    searchQueries[activeTab]?.query
-                      ? String(row[searchQueries[activeTab].column] || '').toLowerCase().includes(searchQueries[activeTab].query)
-                      : true
-                  )
-                  .map((row, rowIndex) => (
-                    <tr key={rowIndex} className="hover:bg-zinc-800">
-                      {Object.entries(row).map(([column, value], colIndex) => {
-                        const isEditing =
-                          editingCell?.table === activeTab &&
-                          editingCell.rowIndex === rowIndex &&
-                          editingCell.column === column;
-                        const isLocked = LOCKED_FIELDS.includes(column);
-                        const isMultiSelect = activeTab === 'trendingideas' && column === 'tags';
-                        const options = getSelectOptions(column);
+            {/* table */}
+            <section className="rounded-xl overflow-auto shadow-2xl">
+              <table className="w-full border-collapse text-sm">
+                <thead className="bg-zinc-800 sticky top-0 shadow">
+                  <tr>
+                    {Object.keys(data[active]![0]).map(k => (
+                      <th
+                        key={k}
+                        className="px-3 py-2 border border-zinc-700 text-left font-medium"
+                      >
+                        {k}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {data[active]!
+                    .filter(r =>
+                      search[active]?.query
+                        ? String(
+                            r[search[active]!.column] ?? '',
+                          )
+                            .toLowerCase()
+                            .includes(search[active]!.query)
+                        : true,
+                    )
+                    .map((row, rIdx) => (
+                      <tr
+                        key={rIdx}
+                        className="odd:bg-zinc-900 even:bg-zinc-800/70 hover:bg-indigo-600/30"
+                      >
+                        {Object.entries(row).map(([col, val], cIdx) => {
+                          const editing =
+                            editCell?.table === active &&
+                            editCell.row === rIdx &&
+                            editCell.column === col;
+                          const locked = LOCKED_FIELDS.includes(col);
+                          const listOpt =
+                            active === 'trendingideas' && col === 'tags';
+                          const selOpt = opts(col);
 
-                        return (
-                          <td
-                            key={colIndex}
-                            className={classNames(
-                              'p-2 border border-zinc-700',
-                              isEditing ? 'bg-indigo-600 cursor-pointer' :
-                                isLocked ? 'bg-zinc-800 text-gray-500 cursor-not-allowed' : 'cursor-pointer'
-                            )}
-                            onDoubleClick={() => handleEditStart(activeTab, rowIndex, column, String(value))}
-                          >
-                            {isEditing ? isMultiSelect ? (
-                              <select
-                                multiple
-                                value={editValue.split(',')}
-                                onChange={(e) => setEditValue(Array.from(e.target.selectedOptions).map(o => o.value).join(','))}
-                                onBlur={handleEditSave}
-                                className="bg-zinc-700 text-white rounded px-2 py-1 w-full"
-                              >
-                                {BUSINESS_SECTORS.map(opt => (
-                                  <option key={opt} value={opt}>{opt}</option>
-                                ))}
-                              </select>
-                            ) : options ? (
-                              <select
-                                value={editValue}
-                                onChange={(e) => setEditValue(e.target.value)}
-                                onBlur={handleEditSave}
-                                autoFocus
-                                className="bg-zinc-700 text-white rounded px-2 py-1 w-full"
-                              >
-                                {options.map((opt) => (
-                                  <option key={opt} value={opt}>{opt}</option>
-                                ))}
-                              </select>
-                            ) : (
-                              <input
-                                value={editValue}
-                                onChange={(e) => setEditValue(e.target.value)}
-                                onBlur={handleEditSave}
-                                onKeyDown={(e) => e.key === 'Enter' && handleEditSave()}
-                                autoFocus
-                                className="bg-zinc-700 text-white rounded px-2 py-1 w-full"
-                              />
-                            ) : (
-                              String(value)
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
+                          return (
+                            <td
+                              key={cIdx}
+                              className={classNames(
+                                'px-3 py-2 border border-zinc-700 align-top',
+                                locked && 'text-gray-500',
+                                editing && 'bg-indigo-600/50',
+                              )}
+                              onDoubleClick={() =>
+                                beginEdit(active, rIdx, col, val)
+                              }
+                            >
+                              {editing ? (
+                                listOpt ? (
+                                  <select
+                                    multiple
+                                    autoFocus
+                                    size={5}
+                                    value={editValue.split(',')}
+                                    onChange={e =>
+                                      setEditValue(
+                                        Array.from(
+                                          e.target.selectedOptions,
+                                        )
+                                          .map(o => o.value)
+                                          .join(','),
+                                      )
+                                    }
+                                    onBlur={saveEdit}
+                                    className="w-full bg-zinc-700 rounded px-2 py-1"
+                                  >
+                                    {BUSINESS_SECTORS.map(o => (
+                                      <option key={o}>{o}</option>
+                                    ))}
+                                  </select>
+                                ) : selOpt ? (
+                                  <select
+                                    autoFocus
+                                    value={editValue}
+                                    onChange={e =>
+                                      setEditValue(e.target.value)
+                                    }
+                                    onBlur={saveEdit}
+                                    className="w-full bg-zinc-700 rounded px-2 py-1"
+                                  >
+                                    {selOpt.map(o => (
+                                      <option key={o}>{o}</option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <input
+                                    autoFocus
+                                    value={editValue}
+                                    onChange={e =>
+                                      setEditValue(e.target.value)
+                                    }
+                                    onBlur={saveEdit}
+                                    onKeyDown={e =>
+                                      e.key === 'Enter' && saveEdit()
+                                    }
+                                    className="w-full bg-zinc-700 rounded px-2 py-1"
+                                  />
+                                )
+                              ) : (
+                                String(val)
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </section>
 
-            {['translations', 'parserresults', 'trendingideas'].includes(activeTab) && (
-              <div className="mt-6 border-t pt-4">
-                <h3 className="text-white mb-2 text-sm">Добавить новую запись</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  {Object.keys(adminData[activeTab][0])
-                    .filter((k) => !LOCKED_FIELDS.includes(k))
-                    .map((key) => (
+            {/* add row */}
+            {['translations', 'parserresults', 'trendingideas'].includes(
+              active,
+            ) && (
+              <div className="mt-8 bg-zinc-900 p-4 rounded-xl shadow-lg space-y-3">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Plus className="w-4 h-4" /> Новая запись
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {Object.keys(data[active]![0])
+                    .filter(k => !LOCKED_FIELDS.includes(k))
+                    .map(key => (
                       <input
                         key={key}
                         placeholder={key}
                         value={newRow[key] || ''}
-                        onChange={(e) => handleNewRowChange(key, e.target.value)}
-                        className="bg-zinc-800 text-white px-3 py-1 rounded w-full text-sm"
+                        onChange={e =>
+                          setNewRow(p => ({ ...p, [key]: e.target.value }))
+                        }
+                        className="bg-zinc-800 rounded px-3 py-1 text-sm"
                       />
                     ))}
                 </div>
                 <button
-                  onClick={handleAddNewRow}
-                  className="mt-4 bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-white text-sm"
+                  onClick={addRow}
+                  className="mt-2 flex items-center gap-2 bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-sm"
                 >
-                  ➕ Добавить
+                  <Save className="w-4 h-4" /> Сохранить
                 </button>
               </div>
             )}
-          </div>
+          </>
         ) : (
-          <p className="text-gray-400 mt-4">📭 Данных нет.</p>
+          <p className="text-gray-400">Данных нет.</p>
         )}
-      </div>
+      </main>
     </div>
   );
 };

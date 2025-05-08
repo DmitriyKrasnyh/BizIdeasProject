@@ -1,79 +1,116 @@
 // src/AnimatedRoutes.tsx
-import React, { useState, useEffect } from 'react';
-import { useLocation, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { TransitionGroup, CSSTransition } from 'react-transition-group';
 
-import { Home } from './pages/Home';
-import { Login } from './pages/Login';
-import { Register } from './pages/Register';
-import { Profile } from './pages/Profile';
-import { Ideas } from './pages/Ideas';
-import { AdminPanel } from './pages/AdminPanel';
+/* pages */
+import { Home }          from './pages/Home';
+import { Login }         from './pages/Login';
+import { Register }      from './pages/Register';
+import { Profile }       from './pages/Profile';
+import { Ideas }         from './pages/Ideas';
+import { Analytics }     from './pages/Analytics';
+import { Assistant }     from './pages/Assistant';
+import { AdminPanel }    from './pages/AdminPanel';
 import { ResetPassword } from './pages/ResetPassword';
 
-
+/* guards & ui */
 import { ProtectedRoute } from './components/ProtectedRoute';
-import { AdminRoute } from './components/AdminRoute';
-import { useAuth } from './contexts/AuthContext';
-import { Loader } from './components/Loader'; // 👈
+import { AdminRoute }     from './components/AdminRoute';
+import { Loader }         from './components/Loader';
+import { useAuth }        from './contexts/AuthContext';
+
+/* ───────── CSS for cross-fade (inject once) ─────────
+   .route-enter  { @apply opacity-0 scale-[0.98]; }
+   .route-enter-active,
+   .route-enter-done { @apply opacity-100 scale-100 transition-all duration-300 ease-out; }
+   .route-exit  { @apply opacity-100 scale-100; }
+   .route-exit-active { @apply opacity-0 scale-[0.98] transition-all duration-200 ease-in; }
+   .page-shell { @apply min-h-screen pt-20; }           ←  keeps offset under navbar
+   (Tailwind jit will pick up these classes)
+------------------------------------------------------------------ */
 
 export function AnimatedRoutes() {
-  const location = useLocation();
-  const { isAuthenticated } = useAuth();
-
+  const location              = useLocation();
+  const { isAuthenticated }   = useAuth();
   const [loading, setLoading] = useState(false);
 
+  /* короткая блокирующая «загрузка» между переходами */
   useEffect(() => {
     setLoading(true);
-    const timer = setTimeout(() => setLoading(false), 400); // Плавная задержка
-    return () => clearTimeout(timer);
+    const tm = setTimeout(() => setLoading(false), 280);
+    return () => clearTimeout(tm);
   }, [location.pathname]);
 
   return (
     <>
       {loading && <Loader />}
 
+      {/* graceful cross-fade between routes */}
       <TransitionGroup component={null}>
-        <CSSTransition key={location.pathname} classNames="page" timeout={300}>
-          <div className="page-transition-wrapper">
+        <CSSTransition
+          key={location.pathname}
+          classNames="route"
+          timeout={{ enter: 300, exit: 200 }}
+          unmountOnExit
+        >
+          <div className="page-shell">
             <Routes location={location}>
-              {/* Открытые маршруты */}
+              {/* public */}
               <Route path="/" element={<Home />} />
               <Route
                 path="/login"
-                element={isAuthenticated ? <Navigate to="/profile" replace /> : <Login />}
+                element={
+                  isAuthenticated ? <Navigate to="/profile" replace /> : <Login />
+                }
               />
               <Route
                 path="/register"
-                element={isAuthenticated ? <Navigate to="/profile" replace /> : <Register />}
+                element={
+                  isAuthenticated ? <Navigate to="/profile" replace /> : <Register />
+                }
               />
-           
+              <Route path="/reset" element={<ResetPassword />} />
 
-              {/* Защищённые маршруты */}
+              {/* informational (открытые) */}
+              <Route path="/analytics" element={<Analytics />} />
+              <Route path="/assistant" element={<Assistant />} />
+
+              {/* protected */}
               <Route
                 path="/profile"
-                element={<ProtectedRoute><Profile /></ProtectedRoute>}
+                element={
+                  <ProtectedRoute>
+                    <Profile />
+                  </ProtectedRoute>
+                }
               />
               <Route
                 path="/ideas"
-                element={<ProtectedRoute><Ideas /></ProtectedRoute>}
+                element={
+                  <ProtectedRoute>
+                    <Ideas />
+                  </ProtectedRoute>
+                }
               />
 
-              <Route path="/reset" element={<ResetPassword />} />
-
-              {/* Админ-панель */}
+              {/* admin */}
               <Route
                 path="/admin"
-                element={<AdminRoute><AdminPanel /></AdminRoute>}
+                element={
+                  <AdminRoute>
+                    <AdminPanel />
+                  </AdminRoute>
+                }
               />
 
-              {/* 404 */}
+              {/* 404 fallback */}
               <Route
                 path="*"
                 element={
-                  <h1 className="text-center text-2xl font-bold mt-10">
-                    404: Страница не найдена
-                  </h1>
+                  <div className="flex items-center justify-center h-[70vh] text-white text-3xl font-bold">
+                    404 &nbsp;—&nbsp; Страница не найдена
+                  </div>
                 }
               />
             </Routes>

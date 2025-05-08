@@ -1,20 +1,25 @@
+// src/pages/Home.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import Spline from '@splinetool/react-spline';
+import { Wrench, BookOpen, HelpCircle, LogOut, Lightbulb } from 'lucide-react';
+
+/* ───── статичные ассеты ───── */
 import vcLogo from './logos/vc.jpg';
 import habrLogo from './logos/habr.png';
 import incLogo from './logos/inc.png';
 import rbcLogo from './logos/rbc.png';
 import rusbaseLogo from './logos/rusbase.png';
-import mascot from '../assets/helper.png';
+import mascotPNG from '../assets/helper.png';
 
-const generateAvatarUrl = (email: string) => {
-  return `https://robohash.org/${encodeURIComponent(email)}?set=set1&size=80x80`;
-};
+/* helpers */
+const avatar = (e: string) =>
+  `https://robohash.org/${encodeURIComponent(e)}?set=set1&size=80x80`;
 
-const resources = [
+/* данные */
+const RESOURCES = [
   { name: 'VC.ru', logo: vcLogo, url: 'https://vc.ru/' },
   { name: 'Habr', logo: habrLogo, url: 'https://habr.com/' },
   { name: 'Inc. Russia', logo: incLogo, url: 'https://incrussia.ru/' },
@@ -22,193 +27,324 @@ const resources = [
   { name: 'Rusbase', logo: rusbaseLogo, url: 'https://rb.ru/' },
 ];
 
-const hints = [
-  '👋 Привет! Нажми "Перейти к идеям", чтобы вдохновиться!',
+const STACK = [
+  'React + TypeScript',
+  'TailwindCSS + Framer Motion',
+  'Supabase (PostgreSQL + Auth)',
+  'Mistral LLM (локально)',
+  'Telegram Bot API',
+  'Spline 3-D',
+];
+
+const HINTS = [
+  '👋 Привет! Нажми «Перейти к идеям», чтобы вдохновиться.',
   '🚀 Зарегистрируйся, чтобы сохранять понравившиеся идеи.',
-  '💡 Мы анализируем тренды — ты просто выбираешь лучшие.'
+  '💡 Мы анализируем тренды — ты выбираешь лучшие.',
 ];
 
-const techStack = [
-  { name: 'React + TypeScript', icon: <div className="text-xl">⚛️</div> },
-  { name: 'TailwindCSS + Framer Motion', icon: <div className="text-xl">🎨</div> },
-  { name: 'Supabase (PostgreSQL + Auth)', icon: <div className="text-xl">🛢️</div> },
-  { name: 'OpenAI GPT API', icon: <div className="text-xl">🧠</div> },
-  { name: 'Telegram Bot API', icon: <div className="text-xl">📲</div> },
-  { name: 'Spline 3D', icon: <div className="text-xl">🔷</div> },
-];
-
+/* ─────────────────────────────────────────── */
 export const Home: React.FC = () => {
-  const navigate = useNavigate();
+  const nav = useNavigate();
   const { user, logout } = useAuth();
-  const [showContact, setShowContact] = useState(false);
-  const [showResources, setShowResources] = useState(false);
+
+  /* модалки */
+  const [showRes, setShowRes] = useState(false);
   const [showStack, setShowStack] = useState(false);
-  const [showWelcomeHint, setShowWelcomeHint] = useState(false);
 
+  /* маскот-хинты */
+  const [hintOpen, setHintOpen] = useState(false);
+  const [hintIdx, setHintIdx] = useState(0);
   useEffect(() => {
-    if (!user) {
-      const timeout = setTimeout(() => setShowWelcomeHint(true), 3000);
-      return () => clearTimeout(timeout);
-    }
-  }, [user]);
+    const opener = setTimeout(() => setHintOpen(true), 2500);
+    const rotator = setInterval(
+      () => setHintIdx(i => (i + 1) % HINTS.length),
+      8000, // ⏳ медленнее смена
+    );
+    return () => {
+      clearTimeout(opener);
+      clearInterval(rotator);
+    };
+  }, []);
 
+  /* ─────────────── render ─────────────── */
   return (
     <div className="relative min-h-screen bg-black text-white overflow-hidden">
+      {/* ---------- 3-D фон (Spline) ---------- */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <Spline scene="https://prod.spline.design/IfGdHOiwVr6UVBXX/scene.splinecode" />
       </div>
 
-      <div className="relative z-10 flex flex-col justify-between min-h-screen px-4 sm:px-6 md:px-10 py-6 sm:py-10">
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
-          <div />
-          <div className="flex flex-wrap justify-end gap-4 w-full sm:w-auto">
-            <button onClick={() => setShowResources(true)} className="text-sm underline hover:text-gray-300">Ресурсы</button>
-            <button onClick={() => setShowStack(true)} className="text-sm underline hover:text-gray-300">Стек</button>
-            {user ? (
-              <div className="flex items-center gap-3 w-full sm:w-auto">
-                <button onClick={() => navigate('/profile')} className="flex items-center gap-2">
-                  <img src={generateAvatarUrl(user.email)} alt="User Avatar" className="w-9 h-9 rounded-full border-2 border-white object-cover shadow-md" />
-                  <div className="text-left text-sm hidden sm:block">
-                    <div>{user.email}</div>
-                    <div className="text-gray-400 text-xs">{user.status || 'standard'}</div>
-                  </div>
-                </button>
-                <button onClick={logout} className="px-4 py-1 border border-white rounded-full text-sm hover:bg-white hover:text-black transition">Выйти</button>
-              </div>
-            ) : (
-              <button onClick={() => navigate('/login')} className="border border-white w-full sm:w-auto px-6 py-2 rounded-full hover:bg-white hover:text-black transition">Войти</button>
-            )}
-          </div>
-        </div>
-
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="mt-6 sm:mt-10 max-w-4xl">
-          <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold leading-tight drop-shadow-xl">
-            Помогаем бизнесу<br />перестроиться под тренды
-          </h1>
-          <p className="mt-6 text-sm sm:text-lg text-gray-300 max-w-xl">
-            Мы анализируем актуальные тренды, чтобы ваш бизнес быстро рос и адаптировался.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 mt-8 w-full">
-            <button onClick={() => navigate('/ideas')} className="w-full sm:w-auto px-6 py-3 rounded-full bg-white text-black font-semibold text-lg hover:scale-105 transition">Перейти к идеям</button>
-            {!user && (
-              <button onClick={() => navigate('/register')} className="w-full sm:w-auto px-6 py-3 rounded-full border border-white text-white text-lg hover:bg-white hover:text-black transition">Зарегистрироваться</button>
-            )}
-          </div>
-        </motion.div>
-
-        <div className="flex flex-wrap justify-center sm:justify-between gap-2 mt-auto pt-10 text-xs text-gray-400 text-center">
-          <div className="space-x-4 tracking-widest">
-            <span>AI</span>
-            <span>\ Telegram</span>
-            <span>\ Business</span>
-            <span>\ Trends</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Маскот */}
-      <div className="fixed bottom-20 left-4 z-50 flex flex-col items-start space-y-2 pointer-events-none">
-        <motion.img
-          src={mascot}
-          alt="Mascot"
-          initial={{ y: 0 }}
-          animate={{ y: [0, -6, 0] }}
-          transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
-          className="w-16 h-16 sm:w-20 sm:h-20 drop-shadow-lg pointer-events-auto"
-        />
-        <button
-          onClick={() => setShowWelcomeHint(true)}
-          className="fixed bottom-10 left-4 z-50 bg-white text-black text-xs px-2 py-1 rounded-full shadow-lg hover:bg-gray-200 transition pointer-events-auto"
-        >
-          ?
-        </button>
-        <AnimatePresence>
-          {showWelcomeHint && (
-            <motion.div
-              onClick={() => setShowWelcomeHint(false)}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              transition={{ duration: 0.3 }}
-              className="bg-white text-black rounded-lg px-4 py-2 shadow-lg text-sm max-w-xs cursor-pointer pointer-events-auto"
+      {/* ---------- Top-bar ---------- */}
+      <div className="absolute top-5 right-6 flex items-center gap-4 text-sm z-30">
+        {user ? (
+          <>
+            <button onClick={() => nav('/profile')}>
+              <img
+                src={avatar(user.email)}
+                alt="avatar"
+                className="w-8 h-8 rounded-full border-2 border-white object-cover hover:opacity-80 transition"
+              />
+            </button>
+            <button
+              onClick={logout}
+              className="p-2 rounded-full border border-white/30 hover:bg-white hover:text-black transition"
             >
-              <p>{hints[Math.floor(Math.random() * hints.length)]}</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              <LogOut className="w-4 h-4" />
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={() => nav('/login')}
+            className="border border-white px-5 py-1.5 rounded-full hover:bg-white hover:text-black transition"
+          >
+            Войти
+          </button>
+        )}
       </div>
 
-      {/* Связаться */}
-      {!user && (
-        <div className="fixed bottom-5 right-4 z-50">
-          <button onClick={() => setShowContact(!showContact)} className="bg-white text-black px-5 py-2 rounded-full shadow hover:scale-105 transition">
-            Связаться
-          </button>
-          <AnimatePresence>
-            {showContact && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 10 }}
-                className="absolute bottom-full right-0 mb-3 bg-zinc-900 border border-zinc-700 text-white rounded-lg shadow-xl w-64 p-4 space-y-3"
-              >
-                <div className="flex items-center gap-3 hover:bg-zinc-800 p-2 rounded transition">
-                  <span className="text-lg">📨</span>
-                  <a href="https://t.me/i6_dEv_9i" target="_blank" rel="noopener noreferrer" className="text-sm hover:underline">Telegram</a>
-                </div>
-                <div className="flex items-center gap-3 hover:bg-zinc-800 p-2 rounded transition">
-                  <span className="text-lg">📧</span>
-                  <a href="mailto:dimathedevoloper@gmail.com" className="text-sm hover:underline">Gmail</a>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+      {/* ---------- Hero-секция ---------- */}
+      <motion.section
+        initial={{ opacity: 0, y: 25 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8 }}
+        className="relative z-10 px-6 pt-24 max-w-4xl"
+      >
+        <h1 className="text-4xl sm:text-6xl font-extrabold leading-tight mb-6 drop-shadow-md">
+          Помогаем бизнесу <br /> перестроиться под&nbsp;тренды
+        </h1>
+        <p className="max-w-lg text-gray-300 sm:text-lg">
+          Мы анализируем актуальные тренды, чтобы ваш бизнес быстро рос и
+          адаптировался.
+        </p>
+        <div className="mt-8 flex flex-col sm:flex-row gap-4">
+          <MainBtn onClick={() => nav('/ideas')}>Перейти к идеям</MainBtn>
+          {!user && (
+            <OutlineBtn onClick={() => nav('/register')}>
+              Зарегистрироваться
+            </OutlineBtn>
+          )}
         </div>
-      )}
+      </motion.section>
 
-      {/* Модалка: Stack */}
+      {/* ---------- ключевые слова ---------- */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-xs tracking-widest text-gray-400 select-none">
+        AI \ Business \ Trends \ Telegram
+      </div>
+
+      {/* ---------- «заглушка» поверх watermark ---------- */}
+      <div className="fixed bottom-0 right-0 w-48 h-10 bg-black pointer-events-none" />
+
+      {/* ---------- плавающие кнопки ---------- */}
+      <FloatPanel
+        onRes={() => setShowRes(true)}
+        onStack={() => setShowStack(true)}
+      />
+
+      {/* ---------- Маскот ---------- */}
+      <Mascot
+        hint={HINTS[hintIdx]}
+        open={hintOpen}
+        onToggle={() => setHintOpen(v => !v)}
+      />
+
+      {/* ---------- Модалки ---------- */}
       <AnimatePresence>
         {showStack && (
-          <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <motion.div className="bg-zinc-900 text-white rounded-2xl p-8 shadow-2xl w-[90%] max-w-md relative" initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} transition={{ duration: 0.3 }}>
-              <button onClick={() => setShowStack(false)} className="absolute top-4 right-5 text-gray-400 hover:text-white text-xl">&times;</button>
-              <h2 className="text-xl font-bold mb-6">Технологический стек</h2>
-              <ul className="space-y-4 text-sm">
-                {techStack.map((tech) => (
-                  <li key={tech.name} className="flex items-center gap-4">
-                    <div className="w-8 h-8 flex items-center justify-center bg-zinc-800 rounded-lg shadow-md">
-                      {tech.icon}
-                    </div>
-                    <span>{tech.name}</span>
-                  </li>
-                ))}
-              </ul>
-            </motion.div>
-          </motion.div>
+          <Modal
+            title="Технологический стек"
+            onClose={() => setShowStack(false)}
+          >
+            <ul className="space-y-3 text-sm">
+              {STACK.map(s => (
+                <li
+                  key={s}
+                  className="flex items-start gap-3 bg-zinc-800 rounded-lg p-3 hover:bg-zinc-700 transition"
+                >
+                  <Wrench className="w-4 h-4 text-indigo-400 mt-0.5" />
+                  {s}
+                </li>
+              ))}
+            </ul>
+          </Modal>
         )}
-      </AnimatePresence>
 
-      {/* Модалка: Источники */}
-      <AnimatePresence>
-        {showResources && (
-          <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <motion.div className="bg-zinc-900 text-white rounded-2xl p-8 shadow-2xl w-[90%] max-w-xl relative" initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} transition={{ duration: 0.3 }}>
-              <button onClick={() => setShowResources(false)} className="absolute top-4 right-5 text-gray-400 hover:text-white text-xl">&times;</button>
-              <h2 className="text-xl font-bold mb-6">Источники и ресурсы</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
-                {resources.map((resource) => (
-                  <a key={resource.name} href={resource.url} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 transition shadow hover:shadow-md">
-                    <div className="w-16 h-16 bg-white rounded-lg overflow-hidden flex items-center justify-center mb-3">
-                      <img src={resource.logo} alt={resource.name} className="w-full h-full object-contain" />
-                    </div>
-                    <span className="text-sm font-medium text-center">{resource.name}</span>
-                  </a>
-                ))}
-              </div>
-            </motion.div>
-          </motion.div>
+        {showRes && (
+          <Modal
+            title="Источники и ресурсы"
+            onClose={() => setShowRes(false)}
+            width="max-w-xl"
+          >
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
+              {RESOURCES.map(r => (
+                <a
+                  key={r.name}
+                  href={r.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex flex-col items-center gap-3 bg-zinc-800 hover:bg-zinc-700 rounded-xl p-4 transition"
+                >
+                  <div className="w-16 h-16 bg-white rounded-lg overflow-hidden flex items-center justify-center">
+                    <img
+                      src={r.logo}
+                      alt={r.name}
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <span className="text-sm">{r.name}</span>
+                </a>
+              ))}
+            </div>
+          </Modal>
         )}
       </AnimatePresence>
     </div>
   );
 };
+
+/* ───────── helpers ───────── */
+const MainBtn = ({ children, onClick }: any) => (
+  <button
+    onClick={onClick}
+    className="px-8 py-3 rounded-full bg-white text-black font-semibold hover:scale-105 transition"
+  >
+    {children}
+  </button>
+);
+
+const OutlineBtn = ({ children, onClick }: any) => (
+  <button
+    onClick={onClick}
+    className="px-8 py-3 rounded-full border border-white hover:bg-white hover:text-black transition"
+  >
+    {children}
+  </button>
+);
+
+/* плавающие кнопки */
+const FloatPanel = ({ onRes, onStack }: any) => (
+  <div className="fixed right-6 bottom-8 flex flex-col gap-3 z-40">
+    <FloatBtn
+      dark
+      label="Ресурсы"
+      icon={<BookOpen className="w-4 h-4" />}
+      onClick={onRes}
+    />
+    <FloatBtn
+      gradient
+      label="Стек"
+      icon={<Wrench className="w-4 h-4" />}
+      onClick={onStack}
+    />
+  </div>
+);
+
+const FloatBtn = ({
+  label,
+  icon,
+  onClick,
+  dark,
+  gradient,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+  dark?: boolean;
+  gradient?: boolean;
+}) => (
+  <button
+    onClick={onClick}
+    className={`px-4 py-2 rounded-full flex items-center gap-2 shadow-lg hover:scale-105 transition
+      ${dark ? 'bg-zinc-900/85 backdrop-blur hover:bg-zinc-800' : ''}
+      ${gradient ? 'bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-600' : ''}`}
+  >
+    {icon}
+    {label}
+  </button>
+);
+
+/* Маскот + хинты */
+const Mascot = ({
+  hint,
+  open,
+  onToggle,
+}: {
+  hint: string;
+  open: boolean;
+  onToggle: () => void;
+}) => (
+  <div className="fixed bottom-28 left-6 flex flex-col gap-3 items-start z-40">
+    <motion.img
+      src={mascotPNG}
+      alt="bot"
+      className="w-16 h-16 sm:w-20 sm:h-20 drop-shadow-xl"
+      animate={{ y: [0, -6, 0] }}
+      transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+    />
+
+    {/* switch-hint button */}
+    <button
+      onClick={onToggle}
+      className="p-[6px] rounded-full bg-white text-black shadow hover:bg-gray-200 transition"
+    >
+      <HelpCircle className="w-4 h-4" />
+    </button>
+
+    {/* fancy hint bubble */}
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          key={hint}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 10 }}
+          transition={{ duration: 0.25 }}
+          className="relative"
+        >
+          <div className="absolute -left-1 bottom-full mb-1 w-0 h-0 border-x-8 border-x-transparent border-b-8 border-b-white" />
+          <div className="bg-white text-black rounded-xl px-4 py-2 shadow-xl flex items-start gap-2 text-sm max-w-xs cursor-pointer"
+               onClick={onToggle}>
+            <Lightbulb className="w-4 h-4 mt-[2px] text-yellow-500 shrink-0" />
+            <span>{hint}</span>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  </div>
+);
+
+/* модалка */
+const Modal = ({
+  onClose,
+  title,
+  children,
+  width = 'max-w-md',
+}: {
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+  width?: string;
+}) => (
+  <motion.div
+    className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+  >
+    <motion.div
+      className={`bg-zinc-900 text-white rounded-2xl p-8 shadow-2xl w-[90%] ${width} relative`}
+      initial={{ scale: 0.95 }}
+      animate={{ scale: 1 }}
+      exit={{ scale: 0.95 }}
+      transition={{ duration: 0.25 }}
+    >
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-5 text-gray-400 hover:text-white text-xl"
+      >
+        &times;
+      </button>
+      <h2 className="text-xl font-bold mb-6">{title}</h2>
+      {children}
+    </motion.div>
+  </motion.div>
+);

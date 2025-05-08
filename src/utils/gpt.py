@@ -1,5 +1,5 @@
 import os
-import openai
+from utils.llm_client import chat
 from dotenv import load_dotenv
 from typing import List, Dict
 import asyncio
