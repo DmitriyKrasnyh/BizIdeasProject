@@ -106,14 +106,6 @@ pnpm dev        # http://localhost:5173
 
 ---
 
-## 🤝 Contributing
-
-1. Fork → ветка.  
-2. `pnpm lint && pnpm test` должны проходить.  
-3. PR с описанием изменений.
-
----
-
 ## © License
 
 MIT © 2025 BizIdeas Team  

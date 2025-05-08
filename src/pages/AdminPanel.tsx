@@ -68,6 +68,7 @@ export const AdminPanel: React.FC = () => {
 
   /* ───── admin check ───── */
   useEffect(() => {
+    document.title = "BizIdeas | Админ панель";
     (async () => {
       if (!user?.email) return;
       const { data } = await supabase

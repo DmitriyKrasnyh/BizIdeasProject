@@ -62,6 +62,7 @@ export const Profile: React.FC = () => {
 
   /* подтягиваем данные из supabase-пользователя */
   useEffect(() => {
+    document.title = "BizIdeas | Профиль";
     if (!user) return;
     setData({
       region:          user.region           || '',

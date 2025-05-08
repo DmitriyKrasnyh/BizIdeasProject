@@ -38,7 +38,9 @@ export const Assistant: React.FC = () => {
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  useEffect(()=>{ bottomRef.current?.scrollIntoView({behavior:'smooth'}); },[msgs]);
+  useEffect(()=>{ 
+    document.title = "BizIdeas | AI асистент";
+    bottomRef.current?.scrollIntoView({behavior:'smooth'}); },[msgs]);
 
   /* тарифное ограничение */
   useEffect(()=>{

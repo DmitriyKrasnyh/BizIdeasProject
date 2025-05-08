@@ -12,6 +12,7 @@ export const ResetPassword: React.FC = () => {
   const [tokenReady, setTokenReady] = useState(false);
 
   useEffect(() => {
+    document.title = "BizIdeas | Востановление пароля";
     // Supabase автоматически вставляет токен в localStorage при переходе по ссылке с #access_token
     const hash = window.location.hash;
     const hasAccessToken = hash.includes('access_token');

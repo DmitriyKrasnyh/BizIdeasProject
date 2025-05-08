@@ -33,6 +33,7 @@ export const Analytics: React.FC = () => {
 
   /* ───── загрузка единожды ───── */
   useEffect(() => {
+    document.title = "BizIdeas | Аналититка";
     (async () => {
       const [{ data: ideaD }, { data: usersD }] = await Promise.all([
         supabase.from('trendingideas')

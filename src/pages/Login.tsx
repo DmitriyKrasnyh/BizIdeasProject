@@ -28,6 +28,7 @@ export const Login: React.FC = () => {
   const [showMascotHint, setShowMascotHint] = useState(false);
 
   useEffect(() => {
+    document.title = "BizIdeas | Вход";
     const timeout = setTimeout(() => setShowMascotHint(true), 3000);
     return () => clearTimeout(timeout);
   }, []);

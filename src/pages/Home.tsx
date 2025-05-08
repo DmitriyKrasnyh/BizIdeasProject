@@ -55,6 +55,7 @@ export const Home: React.FC = () => {
   const [hintOpen, setHintOpen] = useState(false);
   const [hintIdx, setHintIdx] = useState(0);
   useEffect(() => {
+    document.title = "BizIdeas | Главная страница";
     const opener = setTimeout(() => setHintOpen(true), 2500);
     const rotator = setInterval(
       () => setHintIdx(i => (i + 1) % HINTS.length),

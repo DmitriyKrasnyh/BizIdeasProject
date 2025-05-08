@@ -40,6 +40,7 @@ export const Ideas: React.FC = () => {
 
   /* загрузка идей + userInfo */
   useEffect(() => {
+    document.title = "BizIdeas | Идеи";
     (async () => {
       setLoading(true);
       const { data, error } = await supabase.from('trendingideas').select('*');
