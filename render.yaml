@@ -1,0 +1,14 @@
+services:
+  - type: web        # будет работать как HTTP-сервис
+    name: bizideas-llm
+    rootDir: backend
+    env: docker
+    plan: starter    # 512 MB Ram – мало!  Берём «Standard» (2 GB) или GPU
+    disk:
+      name: model-volume
+      mountPath: /models     # если решили хранить GGUF в томе
+      sizeGB: 10
+    autoDeploy: false
+    healthCheckPath: /
+    buildCommand: ""         # Dockerfile сам всё соберёт
+    startCommand: ""         # CMD из Dockerfile
