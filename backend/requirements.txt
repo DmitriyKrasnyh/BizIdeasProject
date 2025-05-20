@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+python-dotenv
+llama-cpp-python[server]
+supabase-py
+pydantic-settings
+stripe
+psycopg2-binary

@@ -1,0 +1,19 @@
+# docker-compose.yml
+services:
+  api:
+    build: ./backend
+    environment:
+      MODEL_PATH: /app/models/mistral.gguf
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+    volumes:
+      - ./backend/llm/models:/app/models
+    ports: [ "8000:8000" ]
+
+  web:
+    build: ./frontend
+    environment:
+      VITE_API_URL: http://api:8000
+      VITE_SUPABASE_URL: ${SUPABASE_URL}
+      VITE_SUPABASE_ANON: ${VITE_SUPABASE_ANON}
+    ports: [ "5173:5173" ]
