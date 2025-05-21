@@ -1,136 +1,85 @@
 /* ────────────────────────────────────────────────────────────────
-   src/pages/Assistant.tsx
-   AI-помощник: приветствие, лимит для Standard, проверка выбранной идеи
+   src/pages/Assistant.tsx                                   v2.0
+   Показываем ВСЮ историю чата (user + assistant) из Supabase
+   и подписываемся в ре-тайме. Вопросы — только в Telegram-боте
+   @BizIdeasTrendsBot. На сайте — «read-only»-просмотр.
 ────────────────────────────────────────────────────────────────── */
-import { useState, useRef, useEffect }            from 'react';
-import { motion, AnimatePresence }                from 'framer-motion';
-import { Bot, Send, Loader2 }                     from 'lucide-react';
-import toast                                      from 'react-hot-toast';
+import { useState, useEffect, useRef }     from 'react';
+import { motion, AnimatePresence }         from 'framer-motion';
+import { Bot, ExternalLink, Loader2 }      from 'lucide-react';
+import toast                               from 'react-hot-toast';
 
-import { supabase }       from '../lib/supabase';
-import { useAuth }        from '../contexts/AuthContext';
-import { useLanguage }    from '../contexts/LanguageContext';
+import { supabase }     from '../lib/supabase';
+import { useAuth }      from '../contexts/AuthContext';
+import { useLanguage }  from '../contexts/LanguageContext';
 
 /* ─────────────── helpers ─────────────── */
-type MsgRole = 'user' | 'assistant' | 'typing';
-interface ChatMsg { id: string; role: MsgRole; content: string }
+type Role = 'user' | 'assistant';
+interface ChatMsg { id: string; role: Role; content: string }
+
+const toChatMsg = (row: any): ChatMsg => ({
+  id:      row.message_id ?? row.id,   // Realtime присылает message_id
+  role:    row.role,
+  content: row.content,
+});
 
 const roboAvatar = (id: string) =>
   `https://robohash.org/${encodeURIComponent(id)}?set=set4&size=80x80`;
 
-const TypingDots = () => (
-  <div className="flex gap-1 py-0.5">
-    {[0, 1, 2].map(i => (
-      <span
-        key={i}
-        className="block w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-        style={{ animationDelay: `${i * 0.2}s` }}
-      />
-    ))}
-  </div>
-);
-
 /* ─────────────── component ─────────────── */
 export const Assistant: React.FC = () => {
-  const { user }   = useAuth();
-  const { t }      = useLanguage();
+  const { user } = useAuth();
+  const { t }    = useLanguage();
 
-  const [msgs,   setMsgs]  = useState<ChatMsg[]>([]);
-  const [inp,    setInp]   = useState('');
-  const [busy,   setBusy]  = useState(false);
-  const [allow,  setAllow] = useState(true);   // один ответ для «standard»
+  const [msgs, setMsgs] = useState<ChatMsg[]>([]);
+  const [busy, setBusy] = useState(true);
 
   const bottomRef = useRef<HTMLDivElement>(null);
-
-  /* auto-scroll */
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs]);
 
-  /* тарифное ограничение (standard = 1 ответ) */
+  /* ───── load + realtime subscribe ───── */
   useEffect(() => {
-    if (!user) return;
-    const unlimited = ['plus', 'admin'].includes(user.status ?? '');
-    if (unlimited) return setAllow(true);
-    setAllow(msgs.filter(m => m.role === 'assistant').length === 0);
-  }, [msgs, user]);
+    if (!user?.user_id) { setBusy(false); return; }
 
-  /* ─────────────── send ─────────────── */
-  const send = async () => {
-    const question = inp.trim();
-    if (!question || busy) return;
+    let sub: ReturnType<typeof supabase.channel> | null = null;
 
-    if (!allow) {
-      toast('⚡ Безлимитный помощник доступен в плане BizIdeas Plus');
-      return;
-    }
-
-    /* проверяем: выбрана ли идея */
-    if (user?.user_id) {
-      const { data: sel } = await supabase
-        .from('userideas')
-        .select('idea_id')
+    const init = async () => {
+      /* последняя сессия пользователя */
+      const { data: sess, error: e1 } = await supabase
+        .from('chat_sessions')
+        .select('session_id')
         .eq('user_id', user.user_id)
-        .single();
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      if (!sel?.idea_id) {
-        toast.error('Сначала выберите идею в разделе «Идеи», чтобы получить персональную рекомендацию.');
-        return;
-      }
-    }
+      if (e1) { toast.error(e1.message); setBusy(false); return; }
+      if (!sess?.session_id) { setBusy(false); return; }
 
-    /* отправляем question */
-    const uid = crypto.randomUUID();
-    setMsgs(m => [
-      ...m,
-      { id: uid + '-u', role: 'user',      content: question },
-      { id: uid + '-t', role: 'typing',    content: ''       }
-    ]);
-    setInp('');
-    setBusy(true);
+      /* вся история */
+      const { data: history, error: e2 } = await supabase
+        .from('chat_messages')
+        .select('message_id,role,content,created_at')
+        .eq('session_id', sess.session_id)
+        .order('created_at');
 
-    /* профиль пользователя для контекста */
-    const { data: profile } =
-      user?.email
-        ? await supabase
-            .from('users')
-            .select(
-              'region,business_sector,transition_goal,experience_lvl,telegram,user_text'
-            )
-            .eq('email', user.email)
-            .single()
-        : { data: null };
+      if (e2) { toast.error(e2.message); setBusy(false); return; }
+      setMsgs((history ?? []).map(toChatMsg));
+      setBusy(false);
 
-    try {
-      const res = await fetch('/api/recommend', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question,
-          profile,
-          locale: t('lang') ?? 'ru'
-        })
-      });
+      /* realtime подписка */
+      sub = supabase.channel('chat:' + sess.session_id)
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `session_id=eq.${sess.session_id}` },
+          payload => setMsgs(m => [...m, toChatMsg(payload.new)])
+        )
+        .subscribe();
+    };
 
-      const { answer } = await res.json();
-
-      setMsgs(m =>
-        m
-          .filter(x => x.id !== uid + '-t')
-          .concat({ id: uid + '-a', role: 'assistant', content: answer })
-      );
-    } catch {
-      toast.error('Сервер не ответил. Попробуйте позже.');
-      setMsgs(m => m.filter(x => x.id !== uid + '-t'));
-    }
-    setBusy(false);
-  };
-
-  /* Enter = отправить */
-  const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      send();
-    }
-  };
+    init();
+    return () => { sub?.unsubscribe(); };
+  }, [user]);
 
   /* ─────────────── UI ─────────────── */
   return (
@@ -146,20 +95,25 @@ export const Assistant: React.FC = () => {
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 relative">
 
         {/* welcome overlay */}
-        {msgs.length === 0 && (
+        {msgs.length === 0 && !busy && (
           <motion.div
             initial={{ opacity: 0 }}
-            animate={{ opacity: 0.65 }}
+            animate={{ opacity: 0.85 }}
             className="absolute inset-0 flex flex-col items-center justify-center text-center text-gray-300 px-4 select-none"
           >
             <Bot className="w-12 h-12 mb-6 text-indigo-400" />
-            <h2 className="text-2xl font-bold mb-3">Привет! 👋</h2>
+            <h2 className="text-2xl font-bold mb-3">Переписка в Telegram</h2>
             <p className="max-w-lg leading-relaxed">
-              Я помогаю адаптировать ваш бизнес под выбранную идею и актуальные
-              тренды. Задайте вопрос&nbsp;— предложу конкретные шаги трансформации.<br />
-              <span className="text-indigo-400 font-semibold">
-                Первый ответ — бесплатно. Безлимит — в плане Plus.
-              </span>
+              Задавайте вопросы в&nbsp;
+              <a
+                href="https://t.me/BizIdeasTrendsBot"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-indigo-400 underline font-semibold"
+              >
+                @BizIdeasTrendsBot
+              </a>,<br />
+              а здесь мгновенно появятся ответы и ваши сообщения.
             </p>
           </motion.div>
         )}
@@ -186,13 +140,12 @@ export const Assistant: React.FC = () => {
 
                 {/* bubble */}
                 <div
-                  className={`px-4 py-2 rounded-2xl leading-relaxed max-w-[80%] sm:max-w-[75%]
+                  className={`px-4 py-2 rounded-2xl leading-relaxed whitespace-pre-line max-w-[80%] sm:max-w-[75%]
                     ${m.role === 'user'
                       ? 'bg-indigo-700/60 backdrop-blur-md'
                       : 'bg-zinc-800/70 backdrop-blur-md'}`}
-                >
-                  {m.role === 'typing' ? <TypingDots /> : m.content}
-                </div>
+                  dangerouslySetInnerHTML={{ __html: m.content.replace(/\n/g, '<br/>') }}
+                />
 
                 {m.role === 'user' && (
                   <div className="ml-2 shrink-0">
@@ -204,66 +157,41 @@ export const Assistant: React.FC = () => {
                 )}
               </motion.div>
             ))}
+
+            {busy && (
+              <motion.div
+                key="loader"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex justify-center py-4"
+              >
+                <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+              </motion.div>
+            )}
           </AnimatePresence>
           <div ref={bottomRef} />
         </div>
       </div>
 
-      {/* input */}
-      <form
-        onSubmit={e => {
-          e.preventDefault();
-          send();
-        }}
-        className="border-t border-white/10 bg-black/60 backdrop-blur px-4 sm:px-6 py-4"
-      >
-        <div className="max-w-2xl mx-auto flex gap-3">
-          <textarea
-            rows={1}
-            placeholder="Спросите про трансформацию бизнеса…"
-            value={inp}
-            onChange={e => setInp(e.target.value)}
-            onKeyDown={handleKey}
-            disabled={busy || !allow}
-            className="flex-1 resize-none rounded-xl bg-zinc-800/70 px-4 py-2
-                       focus:outline-none focus:ring-2 focus:ring-indigo-600
-                       disabled:opacity-40"
-          />
-
-          <button
-            type="submit"
-            disabled={busy || !inp.trim() || !allow}
-            className="shrink-0 h-10 w-10 rounded-xl grid place-items-center
-                       bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40"
+      {/* CTA footer */}
+      <footer className="border-t border-white/10 bg-black/60 backdrop-blur px-4 sm:px-6 py-4">
+        <div className="max-w-2xl mx-auto text-center">
+          <a
+            href="https://t.me/BizIdeasTrendsBot"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700
+                       px-4 py-2 rounded-xl font-medium"
           >
-            {busy ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
-          </button>
+            <ExternalLink className="w-4 h-4" />
+            Открыть чат-бот
+          </a>
+          <p className="text-xs text-gray-400 mt-2">
+            История синхронизируется автоматически.
+          </p>
         </div>
-      </form>
-
-      {/* upsell banner */}
-      {!allow && (
-        <motion.div
-          initial={{ y: 80 }}
-          animate={{ y: 0 }}
-          exit={{ y: 80 }}
-          className="fixed bottom-28 left-1/2 -translate-x-1/2 px-6 py-3
-                     bg-gradient-to-r from-indigo-500 via-purple-600 to-pink-600
-                     rounded-full shadow-lg text-sm"
-        >
-          Безлимитный ассистент —{' '}
-          <span
-            className="underline cursor-pointer"
-            onClick={() => toast('Раздел «Подписки» скоро!')}
-          >
-            оформите Plus
-          </span>
-        </motion.div>
-      )}
+      </footer>
     </div>
   );
 };
