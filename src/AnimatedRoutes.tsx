@@ -13,14 +13,17 @@ import { Analytics }     from './pages/Analytics';
 import { Assistant }     from './pages/Assistant';
 import { AdminPanel }    from './pages/AdminPanel';
 import { ResetPassword } from './pages/ResetPassword';
-import { Pricing }      from './pages/Pricing';
+import { Pricing }       from './pages/Pricing';
+import { Faq }           from './pages/Faq'
+import { SuggestIdea }   from './pages/IdeasSubmissionAndModeration'
+import { ModerateIdeas } from './pages/IdeasSubmissionAndModeration'
 
 /* guards & ui */
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute }     from './components/AdminRoute';
 import { Loader }         from './components/Loader';
 import { useAuth }        from './contexts/AuthContext';
-import {Faq} from './pages/Faq'
+
 
 /* ───────── CSS for cross-fade (inject once) ─────────
    .route-enter  { @apply opacity-0 scale-[0.98]; }
@@ -106,6 +109,8 @@ export function AnimatedRoutes() {
                   </AdminRoute>
                 }
               />
+              <Route path="/suggest-idea" element={<SuggestIdea />} />
+              <Route path="/moderate-ideas" element={<ModerateIdeas />} />   {/* admin only */}
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/faq" element={<Faq />} />
               {/* 404 fallback */}

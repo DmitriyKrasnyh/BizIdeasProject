@@ -1,0 +1,319 @@
+// src/pages/IdeasSubmissionAndModeration.tsx
+// -----------------------------------------------------------------------------
+// 1️⃣ SuggestIdea  – страница, где любой авторизованный пользователь
+//    предлагает новую идею. Микро-userflow:
+//    • Stepper  →  Заполнение →  Превью →  Отправлено ✔️
+//    • Сразу вытягиваем numeric user_id (int) из таблицы users.
+// 2️⃣ ModerateIdeas – панель модерации (service-key или claim "is_admin")
+//    • Лайв-поиск, сортировка, плавные карточки на framer-motion
+// -----------------------------------------------------------------------------
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
+
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import { BUSINESS_SECTORS } from '../contexts/constants';
+
+import {
+  Tag, Send, Loader2, CheckCircle2, XCircle, Filter, Search,
+} from 'lucide-react';
+
+/* ---------------------------------------------------------------------------
+   1. SUGGEST IDEA
+--------------------------------------------------------------------------- */
+export const SuggestIdea: React.FC = () => {
+  const { user, session } = useAuth();
+  const navigate = useNavigate();
+
+  // numeric user_id из таблицы users (int)
+  const [userId, setUserId] = useState<number | null>(null);
+
+  // form fields
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
+  const [customTag, setCustomTag] = useState('');
+
+  // ui state
+  const [step, setStep] = useState<'form' | 'preview' | 'done'>('form');
+  const [loading, setLoading] = useState(false);
+
+  /* ───────────── get numeric user_id */
+  useEffect(() => {
+    document.title = 'Предложить идею | BizIdeas';
+    const fetchId = async () => {
+      if (!user?.email) return;
+      const { data, error } = await supabase
+        .from('users')
+        .select('user_id')
+        .eq('email', user.email)
+        .single();
+      if (error) toast.error(error.message);
+      else setUserId(data?.user_id ?? null);
+    };
+    fetchId();
+  }, [user]);
+
+  /* ───────────── helpers */
+  const toggleTag = (t: string) => {
+    setTags(prev => (prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]));
+  };
+
+  const addCustom = () => {
+    const t = customTag.trim();
+    if (t && !tags.includes(t)) setTags([...tags, t]);
+    setCustomTag('');
+  };
+
+  /* ───────────── submit */
+  const handleSubmit = async () => {
+    if (!userId) return toast.error('Сначала войдите в аккаунт');
+    if (title.length < 4) return toast.error('Название слишком короткое');
+    if (description.length < 20) return toast.error('Опиши идею подробнее');
+
+    setLoading(true);
+    const { error } = await supabase.from('user_ideas_submissions').insert({
+      user_id: userId, // integer fk!
+      title,
+      description,
+      tags,
+    });
+    setLoading(false);
+
+    if (error) toast.error(error.message);
+    else {
+      setStep('done');
+    }
+  };
+
+  /* ───────────── UI */
+  return (
+    <div className="min-h-screen pt-24 md:pt-28 pb-20 px-4 bg-gradient-to-br from-[#100018] via-[#070111] to-black text-white overflow-x-hidden">
+      <div className="max-w-3xl mx-auto">
+        {/* stepper */}
+        <div className="flex items-center justify-center mb-10 gap-4">
+          {['Форма', 'Превью', 'Отправлено'].map((label, idx) => {
+            const active = (step === 'form' && idx === 0) || (step === 'preview' && idx === 1) || (step === 'done' && idx === 2);
+            return (
+              <React.Fragment key={label}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${active ? 'bg-indigo-600' : 'bg-zinc-700'}`}>{idx + 1}</div>
+                {idx !== 2 && <div className="w-8 h-1 bg-zinc-600" />}
+              </React.Fragment>
+            );
+          })}
+        </div>
+
+        {/* FORM */}
+        <AnimatePresence mode="wait">
+          {step === 'form' && (
+            <motion.form
+              key="form"
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -40 }}
+              transition={{ duration: 0.25 }}
+              onSubmit={e => {
+                e.preventDefault();
+                setStep('preview');
+              }}
+              className="space-y-6 bg-zinc-900/70 p-8 rounded-2xl shadow-xl border border-zinc-800"
+            >
+              <h1 className="text-3xl font-bold mb-6 text-center">Предложить новую идею</h1>
+
+              <div>
+                <label className="block text-sm mb-1 font-medium">Название</label>
+                <input
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
+                  placeholder="Кафе без сахара"
+                  className="w-full px-4 py-2 rounded-md bg-zinc-800 border border-zinc-700"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm mb-1 font-medium">Описание</label>
+                <textarea
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  rows={6}
+                  placeholder="Кратко расскажи, в чём суть, кому полезно и за счёт чего зарабатываешь…"
+                  className="w-full px-4 py-2 rounded-md bg-zinc-800 border border-zinc-700"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm mb-2 font-medium">Теги / сферы</label>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {BUSINESS_SECTORS.map(t => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => toggleTag(t)}
+                      className={`px-3 py-1 rounded-full text-sm flex items-center transition ${tags.includes(t) ? 'bg-blue-600' : 'bg-zinc-700 hover:bg-zinc-600'}`}
+                    >
+                      <Tag className="w-4 h-4 mr-1" />{t}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    value={customTag}
+                    onChange={e => setCustomTag(e.target.value)}
+                    placeholder="Свой тег…"
+                    className="flex-1 px-3 py-1.5 rounded-md bg-zinc-800 border border-zinc-700"
+                  />
+                  <button type="button" onClick={addCustom} className="px-3 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500">Добавить</button>
+                </div>
+                {tags.length > 0 && <p className="mt-3 text-sm text-zinc-400">Выбрано: {tags.join(', ')}</p>}
+              </div>
+
+              <button className="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-semibold">Далее</button>
+            </motion.form>
+          )}
+
+          {/* PREVIEW */}
+          {step === 'preview' && (
+            <motion.div key="preview" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }} transition={{ duration: 0.25 }} className="bg-zinc-900/70 p-8 rounded-2xl shadow-xl border border-zinc-800">
+              <h2 className="text-2xl font-bold mb-4">Превью</h2>
+              <h3 className="text-xl font-semibold mb-2">{title}</h3>
+              <p className="text-zinc-300 whitespace-pre-wrap mb-4">{description}</p>
+              <div className="flex flex-wrap gap-2 mb-6">
+                {tags.map(t => <span key={t} className="px-2 py-0.5 text-xs rounded-full bg-blue-800">{t}</span>)}
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setStep('form')} className="flex-1 py-2 rounded-lg bg-zinc-700 hover:bg-zinc-600">Назад</button>
+                <button onClick={handleSubmit} disabled={loading} className="flex-1 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 flex items-center justify-center gap-2 disabled:opacity-50">
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Отправить
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* DONE */}
+          {step === 'done' && (
+            <motion.div key="done" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="text-center bg-zinc-900/70 p-10 rounded-2xl shadow-xl border border-zinc-800">
+              <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold mb-2">Спасибо!</h2>
+              <p className="text-zinc-300 mb-6">Идея отправлена на модерацию. Мы сообщим, когда она пройдёт проверку.</p>
+              <button onClick={() => navigate('/ideas')} className="px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500">Вернуться к идеям</button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+};
+
+/* ---------------------------------------------------------------------------
+   2. MODERATE IDEAS (admin / service_role)
+--------------------------------------------------------------------------- */
+interface Submission {
+  submission_id: string;
+  title: string;
+  description: string;
+  tags: string[];
+  created_at: string;
+  user_email: string | null;
+}
+
+export const ModerateIdeas: React.FC = () => {
+  const { session } = useAuth();
+  const [subs, setSubs] = useState<Submission[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+
+  //  isAdmin ↔ claim role=admin OR you can check email list
+  const isAdmin = session?.user?.role === 'service_role' || (session?.user?.user_metadata?.role === 'admin');
+
+  useEffect(() => {
+    document.title = 'Модерация идей | BizIdeas';
+    const load = async () => {
+      const { data, error } = await supabase
+        .from('user_ideas_submissions')
+        .select('submission_id,title,description,tags,created_at, users:user_id(email)')
+        .eq('status', 'pending')
+        .order('created_at');
+      if (error) toast.error(error.message);
+      else setSubs(
+        (data ?? []).map((r: any) => ({
+          submission_id: r.submission_id,
+          title: r.title,
+          description: r.description,
+          tags: r.tags,
+          created_at: r.created_at,
+          user_email: r.users?.email ?? null,
+        }))
+      );
+      setLoading(false);
+    };
+    load();
+  }, []);
+
+  const filtered = subs.filter(s => s.title.toLowerCase().includes(search.toLowerCase()));
+
+  if (!isAdmin) return <p className="text-center mt-40 text-zinc-400">Нет доступа</p>;
+
+  const handleDecision = async (id: string, approve: boolean) => {
+    const reason = approve ? null : prompt('Почему отклоняем? (опционально)');
+    const { error } = await supabase
+      .from('user_ideas_submissions')
+      .update({ status: approve ? 'approved' : 'rejected', reviewed_at: new Date().toISOString(), reason })
+      .eq('submission_id', id);
+
+    if (error) return toast.error(error.message);
+
+    // optional insert
+    if (approve) {
+      const rec = subs.find(s => s.submission_id === id)!;
+      await supabase.from('trendingideas').insert({
+        title: rec.title,
+        description: rec.description,
+        tags: rec.tags,
+        source_parse_id: 'user',
+      });
+    }
+
+    toast.success(approve ? 'Опубликовано' : 'Отклонено');
+    setSubs(prev => prev.filter(s => s.submission_id !== id));
+  };
+
+  return (
+    <div className="min-h-screen pt-24 md:pt-28 pb-20 px-4 bg-gradient-to-br from-[#100018] via-[#070111] to-black text-white overflow-x-hidden">
+      <div className="max-w-6xl mx-auto">
+        <h1 className="text-3xl sm:text-4xl font-bold text-center mb-8 flex items-center justify-center gap-3"><Filter className="w-6 h-6" /> Модерация идей</h1>
+
+        <div className="max-w-md mx-auto relative mb-6">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Поиск по названию…" className="w-full pl-10 pr-4 py-2 rounded-lg bg-zinc-800 border border-zinc-700" />
+        </div>
+
+        {loading ? (
+          <p className="text-center text-zinc-400">Загрузка…</p>
+        ) : filtered.length === 0 ? (
+          <p className="text-center text-zinc-400">Новых или подходящих предложений нет</p>
+        ) : (
+          <motion.div layout className="space-y-6">
+            {filtered.map(s => (
+              <motion.div key={s.submission_id} layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }} className="bg-zinc-900/70 border border-zinc-800 rounded-xl p-6 shadow-lg">
+                <h2 className="text-xl font-semibold mb-2">{s.title}</h2>
+                <p className="text-sm text-zinc-300 whitespace-pre-wrap mb-4 max-h-[150px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">{s.description}</p>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {s.tags.map(t => <span key={t} className="px-2 py-0.5 text-xs rounded-full bg-blue-800">{t}</span>)}
+                </div>
+                <p className="text-xs text-zinc-500 mb-4">Автор: {s.user_email ?? '—'} · {new Date(s.created_at).toLocaleString()}</p>
+                <div className="flex gap-3">
+                  <button onClick={() => handleDecision(s.submission_id, true)} className="flex-1 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 flex items-center justify-center gap-2"><CheckCircle2 className="w-4 h-4" /> Опубликовать</button>
+                  <button onClick={() => handleDecision(s.submission_id, false)} className="flex-1 py-2 rounded-lg bg-red-600 hover:bg-red-500 flex items-center justify-center gap-2"><XCircle className="w-4 h-4" /> Отклонить</button>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+      </div>
+    </div>
+  );
+};
