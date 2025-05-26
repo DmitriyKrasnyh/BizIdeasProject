@@ -98,7 +98,7 @@ export const Analytics: React.FC = () => {
           {/* KPI */}
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-14">
             <Kpi icon={<Lightbulb className="w-6 h-6" />} label="Идей всего"    value={kpi!.total} />
-            <Kpi icon={<Sparkle   className="w-6 h-6" />} label="Ср. score"     value={kpi!.avg}   />
+            <Kpi icon={<Sparkle   className="w-6 h-6" />} label="Ср. оценка"     value={kpi!.avg}   />
             <Kpi icon={<Users     className="w-6 h-6" />} label="Пользователи"  value={kpi!.users} />
             <Kpi icon={<TagIcon   className="w-6 h-6" />} label="Уник. тегов"   value={kpi!.tags}  />
           </div>
@@ -117,7 +117,7 @@ export const Analytics: React.FC = () => {
               </ResponsiveContainer>
             </Block>
 
-            <Block title="⭐ Средний score по дням">
+            <Block title="⭐ Средняя оценка по дням">
               <ResponsiveContainer width="100%" height={200}>
                 <AreaChart data={byDay}>
                   <XAxis dataKey="date" tick={{fill:'#9ca3af',fontSize:11}} />

@@ -20,6 +20,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute }     from './components/AdminRoute';
 import { Loader }         from './components/Loader';
 import { useAuth }        from './contexts/AuthContext';
+import {Faq} from './pages/Faq'
 
 /* ───────── CSS for cross-fade (inject once) ─────────
    .route-enter  { @apply opacity-0 scale-[0.98]; }
@@ -105,7 +106,8 @@ export function AnimatedRoutes() {
                   </AdminRoute>
                 }
               />
-
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/faq" element={<Faq />} />
               {/* 404 fallback */}
               <Route
                 path="*"

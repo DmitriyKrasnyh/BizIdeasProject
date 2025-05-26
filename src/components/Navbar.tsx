@@ -1,4 +1,7 @@
 // src/components/Navbar.tsx
+// ---------------------------------------------------------------
+// Добавлен пункт «FAQ» в основное меню (десктоп + мобайл).
+// ---------------------------------------------------------------
 import React, { useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import {
@@ -11,7 +14,8 @@ import {
   ShieldCheck,
   LayoutDashboard,
   LogOut,
-  Zap
+  Zap,
+  HelpCircle,         // ← NEW icon for FAQ
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -20,7 +24,8 @@ const BASE_LINKS = [
   { to: '/ideas',     label: 'Идеи',      icon: <Sprout className="w-4 h-4" /> },
   { to: '/assistant', label: 'AI',        icon: <Bot    className="w-4 h-4" /> },
   { to: '/analytics', label: 'Аналитика', icon: <BarChart2 className="w-4 h-4" /> },
-  { to: '/pricing',    label: 'Подписки',  icon: <Zap className="w-4 h-4" /> }
+  { to: '/pricing',   label: 'Подписки',  icon: <Zap className="w-4 h-4" /> },
+  { to: '/faq',       label: 'FAQ',       icon: <HelpCircle className="w-4 h-4" /> },  // ← NEW
 ];
 
 /* ── утилита: бейдж с ролью ── */
@@ -32,9 +37,7 @@ const StatusBadge = ({ status }: { status: string }) => {
     standard: 'text-gray-400',
   };
   return (
-    <span
-      className={`${styles[status] ?? 'text-gray-400'} text-xs inline-flex items-center gap-1`}
-    >
+    <span className={`${styles[status] ?? 'text-gray-400'} text-xs inline-flex items-center gap-1`}>
       {status === 'admin' && <ShieldCheck className="w-3 h-3" />}
       {status}
     </span>
@@ -42,17 +45,9 @@ const StatusBadge = ({ status }: { status: string }) => {
 };
 
 /* ── анимированное раскрытие mobile-меню ── */
-const Collapse = ({
-  open,
-  children,
-}: {
-  open: boolean;
-  children: React.ReactNode;
-}) => (
+const Collapse = ({ open, children }: { open: boolean; children: React.ReactNode }) => (
   <div
-    className={`overflow-hidden transition-[max-height] duration-300 ease-in-out ${
-      open ? 'max-h-[500px]' : 'max-h-0'
-    }`}
+    className={`overflow-hidden transition-[max-height] duration-300 ease-in-out ${open ? 'max-h-[500px]' : 'max-h-0'}`}
   >
     {children}
   </div>
@@ -96,18 +91,15 @@ export const Navbar: React.FC = () => {
   /* ░░░ 3. полноценный navbar на остальных страницах ░░░ */
   const navLinks = [
     ...BASE_LINKS,
-    ...(isAdmin
-      ? [{ to: '/admin', label: 'Admin', icon: <LayoutDashboard className="w-4 h-4" /> }]
-      : []),
+    ...(isAdmin ? [{ to: '/admin', label: 'Admin', icon: <LayoutDashboard className="w-4 h-4" /> }] : []),
   ];
 
   return (
     <header className="fixed top-0 inset-x-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="h-14 flex items-center justify-between
-                        bg-black/60 backdrop-blur
-                        rounded-b-xl shadow-xl shadow-purple-900/20 px-4">
-
+        <div
+          className="h-14 flex items-center justify-between bg-black/60 backdrop-blur rounded-b-xl shadow-xl shadow-purple-900/20 px-4"
+        >
           {/* ─ logo ─ */}
           <Link to="/" className="flex items-center gap-2 text-white">
             <Home className="w-5 h-5 text-indigo-500" />
@@ -117,11 +109,7 @@ export const Navbar: React.FC = () => {
           {/* ─ desktop-links ─ */}
           <nav className="hidden md:flex items-center gap-6">
             {navLinks.map(link => (
-              <NavItem
-                key={link.to}
-                {...link}
-                active={pathname.startsWith(link.to)}
-              />
+              <NavItem key={link.to} {...link} active={pathname.startsWith(link.to)} />
             ))}
           </nav>
 
@@ -151,10 +139,7 @@ export const Navbar: React.FC = () => {
           )}
 
           {/* ─ burger ─ */}
-          <button
-            onClick={() => setOpen(o => !o)}
-            className="md:hidden text-white"
-          >
+          <button onClick={() => setOpen(o => !o)} className="md:hidden text-white">
             {open ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         </div>
@@ -174,11 +159,7 @@ export const Navbar: React.FC = () => {
 
           {isAuthenticated && user && (
             <div className="pt-4 border-t border-white/10 flex items-start justify-between">
-              <Link
-                to="/profile"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-3"
-              >
+              <Link to="/profile" onClick={() => setOpen(false)} className="flex items-center gap-3">
                 <img
                   src={`https://robohash.org/${user.user_id}?set=set4&size=40x40`}
                   alt="avatar"
@@ -207,26 +188,12 @@ export const Navbar: React.FC = () => {
 };
 
 /* ── отдельный пункт меню ── */
-function NavItem({
-  to,
-  label,
-  icon,
-  active,
-  onClick,
-}: {
-  to: string;
-  label: string;
-  icon: React.ReactNode;
-  active: boolean;
-  onClick?: () => void;
-}) {
+function NavItem({ to, label, icon, active, onClick }: { to: string; label: string; icon: React.ReactNode; active: boolean; onClick?: () => void }) {
   return (
     <NavLink
       to={to}
       onClick={onClick}
-      className={`flex items-center gap-2 text-sm ${
-        active ? 'text-white' : 'text-gray-400 hover:text-white'
-      }`}
+      className={`flex items-center gap-2 text-sm ${active ? 'text-white' : 'text-gray-400 hover:text-white'}`}
     >
       {icon}
       {label}
