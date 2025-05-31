@@ -8,7 +8,7 @@ import { Home }          from './pages/Home';
 import { Login }         from './pages/Login';
 import { Register }      from './pages/Register';
 import { Profile }       from './pages/Profile';
-import { Ideas }         from './pages/Ideas';
+import  Ideas            from './pages/Ideas';
 import { Analytics }     from './pages/Analytics';
 import { Assistant }     from './pages/Assistant';
 import { AdminPanel }    from './pages/AdminPanel';
