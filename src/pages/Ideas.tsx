@@ -1,14 +1,30 @@
-// src/pages/Ideas.tsx
-import React, { useEffect, useState, useRef } from 'react';
-import { Tag, Bot } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import { useLanguage } from '../contexts/LanguageContext';
-import { useAuth } from '../contexts/AuthContext';
-import mascotImg from './logos/mascot.png';
-import { BUSINESS_SECTORS } from '../contexts/constants';
-import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+/* ────────────────────────────────────────────────────────────────
+   src/pages/Ideas.tsx
+   • лайк  💙
+   • пустые / крайние состояния + toast
+   • hotkeys ← / → / Esc
+   • progress-bar вместо цифры popularity
+   • похожие идеи в модалке
+   • FAB «Предложить» в правом нижнем углу
+────────────────────────────────────────────────────────────────── */
+import React, { useEffect, useRef, useState, useMemo } from 'react';
+import {
+  Tag, HelpCircle, Plus, Lightbulb,
+  Heart, HeartOff, X as Close,
+} from 'lucide-react';
+import Joyride, { STATUS, Step, CallBackProps } from 'react-joyride';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate }  from 'react-router-dom';
+import toast            from 'react-hot-toast';
 
+import { supabase }         from '../lib/supabase';
+import { useLanguage }      from '../contexts/LanguageContext';
+import { useAuth }          from '../contexts/AuthContext';
+import { BUSINESS_SECTORS } from '../contexts/constants';
+import FancyTooltip         from '../components/FancyTooltip';
+import mascotImg            from './logos/mascot.png';
+
+/* ---------- types ---------- */
 interface Idea {
   idea_id: number;
   title: string;
@@ -17,83 +33,100 @@ interface Idea {
   popularity_score: number | null;
 }
 
-const PAGE_SIZE = 6;
+/* ---------- const ---------- */
+const PAGE_SIZE  = 6;
+const SWIPE_TRSH = 40;
 
-function Ideas() {
-  const { t } = useLanguage();
-  const { user } = useAuth();
-  const navigate = useNavigate();
+/* ---------- joy-steps ---------- */
+const steps: Step[] = [
+  { target:'#filter-chip-ИТ',   content:'Используйте теги для фильтра.' },
+  { target:'#chip-liked',       content:'Отобразите только понравившиеся.' },
+  { target:'#idea-card-1',      content:'Откройте подробности идеи.' },
+  { target:'#ideas-pagination', content:'Переключайте страницы.' },
+  { target:'#fab-suggest',      content:'Добавьте свою идею!' },
+];
 
-  const [ideas, setIdeas]                 = useState<Idea[]>([]);
-  const [selectedTags, setSelectedTags]   = useState<string[]>([]);
-  const [expanded, setExpanded]           = useState<Idea | null>(null);
-  const [loading, setLoading]             = useState(true);
-  const [currentPage, setCurrentPage]     = useState(1);
-  const [selectedIdeaId, setSelectedIdeaId] = useState<number | null>(null);
-  const [saving, setSaving]               = useState(false);
-  const [userId, setUserId]               = useState<number | null>(null);
-  const [mascotReact, setMascotReact]     = useState(false);
+/* ------------------------------------------------------------------ */
+export default function Ideas() {
+  const { t }     = useLanguage();
+  const { user }  = useAuth();
+  const nav       = useNavigate();
 
-  const touchStartX = useRef<number | null>(null);
+  /* ───── state ───── */
+  const [ideas, setIdeas]         = useState<Idea[]>([]);
+  const [selectedTags, setTags]   = useState<string[]>([]);
+  const [liked, setLiked]         = useState<number[]>(
+    () => JSON.parse(localStorage.getItem('liked_ideas') || '[]'),
+  );
+  const [onlyLiked, setOnlyLiked] = useState(false);
+  const [expanded, setExpanded]   = useState<Idea | null>(null);
+  const [loading, setLoading]     = useState(true);
+  const [page, setPage]           = useState(1);
 
-  /* ───── первичная загрузка ───── */
+  const [userId,   setUserId]     = useState<number | null>(null);
+  const [mainIdea, setMainIdea]   = useState<number | null>(null);
+  const [saving,   setSaving]     = useState(false);
+
+  const [mascotWiggle, setWiggle] = useState(false);
+  const [guide, setGuide]         = useState(
+    !localStorage.getItem('guide_ideas_seen'),
+  );
+
+  const swipeX = useRef<number | null>(null);
+
+  /* ───── initial data ───── */
   useEffect(() => {
     document.title = 'BizIdeas | Идеи';
 
-    (async () => {
-      setLoading(true);
-      const { data, error } = await supabase.from('trendingideas').select('*');
-      if (error) console.error(error.message);
-      else setIdeas(data || []);
+    supabase.from('trendingideas').select('*').then(({ data }) => {
+      setIdeas(data ?? []);
       setLoading(false);
-    })();
+      if ((data ?? []).length === 0) {
+        toast('Пока идей нет – добавьте свою! 😊', { icon: '💡' });
+      }
+    });
 
-    (async () => {
-      if (!user?.email) return;
-      const { data } = await supabase
+    if (user?.email) {
+      supabase
         .from('users')
         .select('user_id')
         .eq('email', user.email)
-        .single();
-      if (!data?.user_id) return;
-      setUserId(data.user_id);
+        .single()
+        .then(({ data }) => setUserId(data?.user_id ?? null));
 
-      const { data: ideaData } = await supabase
+      supabase
         .from('userideas')
         .select('idea_id')
-        .eq('user_id', data.user_id)
-        .single();
-      if (ideaData) setSelectedIdeaId(ideaData.idea_id);
-    })();
+        .eq('user_id', user.user_id)
+        .single()
+        .then(({ data }) => setMainIdea(data?.idea_id ?? null));
+    }
   }, [user]);
 
-  /* ───── фильтр ───── */
-  const toggleTag = (tag: string) => {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
-    );
-    setCurrentPage(1);
-    setMascotReact(true);
-    setTimeout(() => setMascotReact(false), 800);
+  /* ───── helpers ───── */
+  const toggleTag = (tg: string) => {
+    setTags(p => (p.includes(tg) ? p.filter(x => x !== tg) : [...p, tg]));
+    setPage(1);
+    setWiggle(true);
+    setTimeout(() => setWiggle(false), 600);
   };
 
-  const filtered = ideas.filter(
-    (i) =>
-      selectedTags.length === 0 ||
-      i.tags?.some((tg) => selectedTags.includes(tg)),
-  );
+  const toggleLike = (id: number) => {
+    setLiked(p => {
+      const next = p.includes(id) ? p.filter(x => x !== id) : [...p, id];
+      localStorage.setItem('liked_ideas', JSON.stringify(next));
+      toast(
+        next.includes(id) ? 'Добавлено в избранное' : 'Убрано из избранного',
+        { icon: next.includes(id) ? '💙' : '💔' },
+      );
+      return next;
+    });
+  };
 
-  const pageCount    = Math.ceil(filtered.length / PAGE_SIZE);
-  const currentIdeas = filtered.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
-  );
-
-  /* ───── выбрать идею ───── */
-  const choose = async () => {
+  const chooseIdea = async () => {
     if (!userId || !expanded) return;
-    if (selectedIdeaId && selectedIdeaId !== expanded.idea_id) {
-      if (!window.confirm('У тебя уже выбрана идея. Заменить её?')) return;
+    if (mainIdea && mainIdea !== expanded.idea_id) {
+      if (!confirm('Идея уже выбрана. Заменить?')) return;
     }
     setSaving(true);
     await supabase
@@ -109,197 +142,427 @@ function Ideas() {
         { onConflict: 'user_id' },
       );
     setSaving(false);
-    setSelectedIdeaId(expanded.idea_id);
+    setMainIdea(expanded.idea_id);
+    toast.success('Идея сохранена как основная');
   };
 
-  /* ───── cвайпы ───── */
+  /* ───── filter + pagination ───── */
+  let list = ideas;
+  if (selectedTags.length)
+    list = list.filter(i => i.tags.some(t => selectedTags.includes(t)));
+  if (onlyLiked) list = list.filter(i => liked.includes(i.idea_id));
+
+  const pages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+  const slice = list.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  /* ───── похожие идеи (по первому тегу) ───── */
+  const related = useMemo(() => {
+    if (!expanded) return [];
+    const tag = expanded.tags[0];
+    return ideas
+      .filter(
+        i => i.idea_id !== expanded.idea_id && i.tags.includes(tag),
+      )
+      .slice(0, 3);
+  }, [expanded, ideas]);
+
+  /* ───── touch swipe ───── */
   const onStart = (e: React.TouchEvent) =>
-    (touchStartX.current = e.touches[0].clientX);
+    (swipeX.current = e.touches[0].clientX);
   const onEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null) return;
-    const diff = e.changedTouches[0].clientX - touchStartX.current;
-    if (diff > 50 && currentPage > 1) setCurrentPage((p) => p - 1);
-    if (diff < -50 && currentPage < pageCount) setCurrentPage((p) => p + 1);
-    touchStartX.current = null;
+    if (swipeX.current === null) return;
+    const diff = e.changedTouches[0].clientX - swipeX.current;
+    if (diff > SWIPE_TRSH && page > 1) setPage(p => p - 1);
+    if (diff < -SWIPE_TRSH && page < pages) setPage(p => p + 1);
+    swipeX.current = null;
   };
 
-  /* ───── UI ───── */
+  /* ───── keyboard shortcuts ───── */
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight' && page < pages) setPage(p => p + 1);
+      if (e.key === 'ArrowLeft' && page > 1) setPage(p => p - 1);
+      if (e.key === 'Escape' && expanded) setExpanded(null);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [page, pages, expanded]);
+
+  /* ───── joyride ───── */
+  const onJoy = (d: CallBackProps) => {
+    if ([STATUS.FINISHED, STATUS.SKIPPED].includes(d.status as STATUS)) {
+      localStorage.setItem('guide_ideas_seen', 'yes');
+      setGuide(false);
+    }
+  };
+
+  /* ---------- ui ---------- */
   return (
     <div
-      className="pt-20 min-h-screen bg-gradient-to-br from-[#100018] via-[#070111] to-black text-white pb-32 sm:pb-10 px-4 relative overflow-hidden"
+      className="pt-20 min-h-screen bg-gradient-to-br from-[#100018] via-[#070111] to-black text-white
+                 pb-40 sm:pb-20 px-4 relative overflow-hidden"
       onTouchStart={onStart}
       onTouchEnd={onEnd}
     >
-      <div className="max-w-6xl mx-auto relative z-10">
-        <h1 className="text-3xl sm:text-4xl font-bold mb-6">
-          {t('trendingIdeas') || 'Популярные бизнес-идеи'}
-        </h1>
+      <Joyride
+        run={guide}
+        steps={steps}
+        continuous
+        showProgress
+        showSkipButton
+        disableScrolling
+        tooltipComponent={FancyTooltip}
+        styles={{ options: { primaryColor: '#6366f1', zIndex: 9999 } }}
+        callback={onJoy}
+      />
 
-        {/* фильтр */}
-        <div className="mb-8">
-          <h2 className="text-base sm:text-lg font-semibold mb-3">
-            {t('filterByTags') || 'Фильтр по темам'}
-          </h2>
+      {/* header */}
+      <div className="flex items-center gap-3 max-w-6xl mx-auto mb-6">
+        <h1 className="text-3xl sm:text-4xl font-bold flex-1">
+          {t('trendingIdeas') || 'Популярные идеи'}
+        </h1>
+        <button
+          aria-label="Запустить обучение"
+          onClick={() => {
+            localStorage.removeItem('guide_ideas_seen');
+            setGuide(true);
+          }}
+          className="p-2 rounded hover:bg-white/10"
+        >
+          <HelpCircle className="w-5 h-5 text-gray-400" />
+        </button>
+      </div>
+
+      <div className="max-w-6xl mx-auto relative z-10">
+        {/* chips */}
+        <section className="mb-8">
+          <h2 className="text-sm font-semibold mb-3">Темы</h2>
+
           <div className="flex flex-wrap gap-2">
-            {BUSINESS_SECTORS.map((tg) => (
+            {BUSINESS_SECTORS.map(tg => (
               <button
                 key={tg}
                 id={`filter-chip-${tg}`}
                 onClick={() => toggleTag(tg)}
-                className={`px-3 py-1 rounded-full text-sm flex items-center transition ${
-                  selectedTags.includes(tg)
-                    ? 'bg-blue-600'
-                    : 'bg-gray-700 hover:bg-gray-600'
-                }`}
+                className={`px-3 py-1 rounded-full text-sm flex items-center
+                             transition-colors
+                             ${
+                               selectedTags.includes(tg)
+                                 ? 'bg-blue-600 text-white'
+                                 : 'bg-gray-700 hover:bg-gray-600 text-gray-200'
+                             }`}
               >
-                <Tag className="h-4 w-4 mr-1" />
+                <Tag className="w-4 h-4 mr-1" />
                 {tg}
               </button>
             ))}
-          </div>
-        </div>
 
-        {/* карточки */}
+            <button
+              id="chip-liked"
+              onClick={() => setOnlyLiked(p => !p)}
+              className={`px-3 py-1 rounded-full text-sm flex items-center
+                           transition-colors
+                           ${
+                             onlyLiked
+                               ? 'bg-pink-600 text-white'
+                               : 'bg-gray-700 hover:bg-gray-600 text-gray-200'
+                           }`}
+            >
+              {onlyLiked ? (
+                <Heart className="w-4 h-4 mr-1" />
+              ) : (
+                <HeartOff className="w-4 h-4 mr-1" />
+              )}
+              Понравившиеся
+            </button>
+          </div>
+        </section>
+
+        {/* grid */}
         {loading ? (
-          <SkeletonGrid />
+          <Skeleton />
+        ) : slice.length === 0 ? (
+          <EmptyState
+            message={onlyLiked ? 'Пока нет понравившихся идей' : 'Подходящих идей не найдено'}
+            action={onlyLiked ? () => setOnlyLiked(false) : () => setTags([])}
+            actionLabel={onlyLiked ? 'Показать все' : 'Сбросить фильтр'}
+          />
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {currentIdeas.map((idea) => (
-              <article
+            {slice.map((idea, idx) => (
+              <IdeaCard
                 key={idea.idea_id}
-                id={`idea-card-${idea.idea_id}`}
-                onClick={() => setExpanded(idea)}
-                className="cursor-pointer bg-gradient-to-br from-gray-800 to-gray-900 hover:from-purple-800 hover:to-indigo-900 rounded-xl p-5 shadow-md hover:shadow-xl hover:scale-[1.03] transition-all duration-300"
-              >
-                <h3 className="text-lg font-semibold mb-2">{idea.title}</h3>
-                <p className="text-sm text-gray-300 line-clamp-3">
-                  {idea.description}
-                </p>
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {idea.tags.map((tg) => (
-                    <span
-                      key={tg}
-                      className="text-xs px-2 py-0.5 rounded-full bg-blue-800 text-white"
-                    >
-                      {tg}
-                    </span>
-                  ))}
-                </div>
-                <div className="text-xs text-gray-400 mt-2">
-                  📈 popularity: {idea.popularity_score?.toFixed(1) ?? '—'}
-                </div>
-              </article>
+                idea={idea}
+                idx={idx}
+                liked={liked.includes(idea.idea_id)}
+                toggleLike={toggleLike}
+                open={() => setExpanded(idea)}
+              />
             ))}
           </div>
         )}
 
-        {/* пагинация */}
-        {pageCount > 1 && (
-          <div
+
+        {/* pagination */}
+        {pages > 1 && (
+          <nav
             id="ideas-pagination"
             className="flex justify-center mt-10 gap-2"
+            aria-label="Пагинация"
           >
-            {Array.from({ length: pageCount }, (_, i) => i + 1).map((p) => (
+            {Array.from({ length: pages }, (_, i) => i + 1).map(p => (
               <button
                 key={p}
-                onClick={() => setCurrentPage(p)}
-                className={`w-8 h-8 rounded-full text-sm font-semibold ${
-                  currentPage === p
-                    ? 'bg-white text-black'
-                    : 'bg-gray-800 hover:bg-gray-700'
-                }`}
+                className={`w-8 h-8 rounded-full text-sm font-semibold
+                             ${
+                               page === p
+                                 ? 'bg-white text-black'
+                                 : 'bg-gray-800 hover:bg-gray-700'
+                             }`}
+                onClick={() => setPage(p)}
               >
                 {p}
               </button>
             ))}
-          </div>
+          </nav>
         )}
       </div>
 
-      {/* маскот — скрыт на xs */}
+      {/* mascot */}
       <div className="hidden sm:block absolute bottom-0 left-1/2 -translate-x-1/2 z-0 pointer-events-none">
         <div
-          className={`relative w-64 h-36 sm:w-[500px] sm:h-[300px] overflow-hidden transition-transform duration-500 ${
-            mascotReact ? 'animate-wiggle' : ''
-          }`}
+          className={`relative w-64 h-36 sm:w-[500px] sm:h-[300px] overflow-hidden
+                       transition-transform ${
+                         mascotWiggle ? 'animate-wiggle' : ''
+                       }`}
         >
-          <img src={mascotImg} alt="Mascot" className="w-full h-auto" />
+          <img src={mascotImg} alt="" className="w-full h-auto" />
         </div>
       </div>
 
-      {/* FAB ассистента */}
+      {/* FAB */}
       <motion.button
-        id="ai-fab"
+        id="fab-suggest"
         initial={{ scale: 0, y: 80 }}
         animate={{
           scale: 1,
           y: 0,
           transition: { type: 'spring', stiffness: 260, damping: 20 },
         }}
-        whileHover={{ scale: 1.08, rotate: 1 }}
+        whileHover={{ scale: 1.08 }}
         whileTap={{ scale: 0.93 }}
-        onClick={() => navigate('/assistant')}
-        className="fixed bottom-4 sm:bottom-8 right-4 sm:right-8 z-30 flex items-center gap-2
-                   bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-600 px-5 py-3 rounded-full
-                   text-white font-semibold shadow-xl shadow-purple-900/40 backdrop-blur-lg"
+        onClick={() => nav('/suggest-idea')}
+        className="fixed bottom-5 sm:bottom-7 right-4 sm:right-8 z-30 flex items-center gap-2
+                     bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 px-5 py-3 rounded-full
+                     text-white font-semibold shadow-xl shadow-teal-800/40 backdrop-blur-lg"
       >
-        <Bot className="w-5 h-5" />
-        AI-помощник
+        <Plus className="w-5 h-5" /> Предложить идею
       </motion.button>
 
-      {/* модалка деталей */}
-      {expanded && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
-          onClick={() => setExpanded(null)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="relative max-w-xl w-full bg-gray-900 text-white rounded-xl p-6 shadow-lg"
+      {/* modal */}
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4"
+            onClick={() => setExpanded(null)}
           >
-            <button
-              onClick={choose}
-              disabled={saving}
-              className="absolute top-4 right-4 px-4 py-1 text-sm font-semibold rounded-full bg-blue-600 hover:bg-blue-700 transition"
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              onClick={e => e.stopPropagation()}
+              className="relative max-w-xl w-full bg-gray-900 rounded-xl p-6 shadow-lg"
             >
-              {selectedIdeaId === expanded.idea_id
-                ? 'Выбрано ✅'
-                : saving
-                ? 'Сохраняем…'
-                : 'Выбрать идею'}
-            </button>
-            <h2 className="text-2xl font-bold mb-4">{expanded.title}</h2>
-            <p className="text-gray-300 mb-4">{expanded.description}</p>
-            <div className="flex flex-wrap gap-2 mb-2">
-              {expanded.tags.map((tg) => (
-                <span
-                  key={tg}
-                  className="text-xs px-2 py-0.5 rounded-full bg-blue-800 text-white"
+              <button
+                aria-label="Закрыть"
+                onClick={() => setExpanded(null)}
+                className="absolute -top-3 -right-3 bg-gray-800 w-7 h-7 rounded-full
+                             grid place-content-center hover:bg-gray-700"
+              >
+                <Close className="w-4 h-4" />
+              </button>
+
+              <h2 className="text-2xl font-bold mb-4">{expanded.title}</h2>
+              <p className="text-gray-300 mb-4 whitespace-pre-line">
+                {expanded.description}
+              </p>
+
+              <div className="flex flex-wrap gap-2 mb-4">
+                {expanded.tags.map(t => (
+                  <span
+                    key={t}
+                    className="text-xs px-2 py-0.5 rounded-full bg-blue-800"
+                  >
+                    {t}
+                  </span>
+                ))}
+              </div>
+
+              <Progress val={expanded.popularity_score ?? 0} />
+
+              <div className="flex flex-col sm:flex-row gap-3 my-6">
+                <button
+                  onClick={chooseIdea}
+                  disabled={saving}
+                  className="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500
+                               flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  {tg}
-                </span>
-              ))}
-            </div>
-            <p className="text-sm text-gray-400">
-              📈 popularity: {expanded.popularity_score?.toFixed(1) ?? '—'}
-            </p>
-          </div>
-        </div>
-      )}
+                  {mainIdea
+                    ? mainIdea === expanded.idea_id
+                      ? 'Выбрано ✅'
+                      : 'Заменить идею'
+                    : 'Выбрать идею'}
+                </button>
+                <button
+                  onClick={() => nav('/suggest-idea')}
+                  className="flex-1 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500
+                               flex items-center justify-center gap-2"
+                >
+                  <Lightbulb className="w-4 h-4" /> Предложить похожую
+                </button>
+              </div>
+
+              {/* похожие */}
+              {related.length > 0 && (
+                <div>
+                  <h3 className="font-semibold mb-2">Похожие идеи</h3>
+                  <div className="grid sm:grid-cols-3 gap-3">
+                    {related.map(r => (
+                      <button
+                        key={r.idea_id}
+                        onClick={() => setExpanded(r)}
+                        className="bg-zinc-800/70 p-3 rounded-lg text-left text-xs hover:bg-zinc-700"
+                      >
+                        <p className="font-semibold line-clamp-2 mb-1">
+                          {r.title}
+                        </p>
+                        <Progress mini val={r.popularity_score ?? 0} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
-/* skeleton loader */
-function SkeletonGrid() {
+/* ---------- components ---------- */
+function IdeaCard({
+  idea,
+  idx,
+  liked,
+  toggleLike,
+  open,
+}: {
+  idea: Idea;
+  idx: number;
+  liked: boolean;
+  toggleLike: (id: number) => void;
+  open: () => void;
+}) {
+  return (
+    <article
+      id={`idea-card-${idx === 0 ? 1 : idea.idea_id}`}
+      className="bg-gradient-to-br from-gray-800 to-gray-900 p-5 rounded-xl shadow-md
+                 hover:shadow-xl hover:scale-[1.03] transition cursor-pointer relative group"
+      onClick={open}
+    >
+      <button
+        aria-label="Like"
+        onClick={e => {
+          e.stopPropagation();
+          toggleLike(idea.idea_id);
+        }}
+        className="absolute top-3 right-3 text-pink-400 opacity-70 hover:opacity-100
+                   transition-transform origin-center active:scale-75"
+      >
+        {liked ? (
+          <Heart className="w-5 h-5 fill-current" />
+        ) : (
+          <HeartOff className="w-5 h-5" />
+        )}
+      </button>
+
+      <h3 className="text-lg font-semibold mb-2 pr-6">{idea.title}</h3>
+      <p className="text-sm text-gray-300 line-clamp-3">{idea.description}</p>
+
+      <div className="flex flex-wrap gap-2 mt-3">
+        {idea.tags.map(t => (
+          <span
+            key={t}
+            className="text-xs px-2 py-0.5 rounded-full bg-blue-800"
+          >
+            {t}
+          </span>
+        ))}
+      </div>
+
+      <div className="mt-4">
+        <Progress val={idea.popularity_score ?? 0} />
+      </div>
+    </article>
+  );
+}
+
+
+function Progress({ val, mini }: { val: number; mini?: boolean }) {
+  return (
+    <>
+      <div className={`${mini ? 'h-1' : 'h-1.5'} rounded-full bg-zinc-700`}>
+        <div
+          style={{ width: `${val}%` }}
+          className={`h-full rounded-full ${
+            mini ? 'bg-cyan-300' : 'bg-cyan-400'
+          }`}
+        />
+      </div>
+      {!mini && (
+        <p className="text-[10px] text-gray-400 mt-1">
+          Popularity {val.toFixed(0)}%
+        </p>
+      )}
+    </>
+  );
+}
+
+function Skeleton() {
   return (
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 animate-pulse">
       {Array.from({ length: PAGE_SIZE }).map((_, i) => (
-        <div key={i} className="h-40 bg-gray-800/70 rounded-xl" />
+        <div
+          key={i}
+          className="h-40 bg-zinc-800/70 rounded-xl"
+        />
       ))}
     </div>
   );
 }
 
-export default Ideas;
-export { Ideas };
+function EmptyState({
+  message,
+  action,
+  actionLabel,
+}: {
+  message: string;
+  action: () => void;
+  actionLabel: string;
+}) {
+  return (
+    <div className="text-center py-20 text-gray-400 select-none">
+      <p className="mb-4">{message}</p>
+      <button
+        onClick={action}
+        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-medium"
+      >
+        {actionLabel}
+      </button>
+    </div>
+  );
+}

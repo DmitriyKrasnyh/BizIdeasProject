@@ -1,4 +1,3 @@
-// src/pages/AdminPanel.tsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import classNames from 'classnames';
@@ -10,9 +9,11 @@ import {
   Search,
   ShieldOff,
   CornerUpLeft,
+  Filter,               // ★  иконка для новой кнопки
 } from 'lucide-react';
+
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth }   from '../contexts/AuthContext';
 import {
   REGIONS,
   BUSINESS_SECTORS,
@@ -21,6 +22,7 @@ import {
   STATUS_OPTIONS,
 } from '../contexts/constants';
 
+/* таблицы, которые уже отображались раньше */
 const TABLES = [
   'users',
   'trendingideas',
@@ -46,10 +48,10 @@ type SearchState = {
 };
 
 export const AdminPanel: React.FC = () => {
-  const { user } = useAuth();
-  const navigate = useNavigate();
+  const { user }   = useAuth();
+  const navigate   = useNavigate();
 
-  /* ───── state ───── */
+  /* --- state --- */
   const [data, setData] = useState<{ [T in (typeof TABLES)[number]]?: any[] }>(
     {},
   );
@@ -66,9 +68,9 @@ export const AdminPanel: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  /* ───── admin check ───── */
+  /* --- admin check --- */
   useEffect(() => {
-    document.title = "BizIdeas | Админ панель";
+    document.title = 'BizIdeas | Админ панель';
     (async () => {
       if (!user?.email) return;
       const { data } = await supabase
@@ -81,7 +83,7 @@ export const AdminPanel: React.FC = () => {
     })();
   }, [user]);
 
-  /* ───── fetch tables ───── */
+  /* --- fetch --- */
   useEffect(() => {
     if (!isAdmin || active === 'er-diagram') return;
     (async () => {
@@ -90,7 +92,7 @@ export const AdminPanel: React.FC = () => {
     })();
   }, [active, isAdmin]);
 
-  /* ───── helpers ───── */
+  /* --- helpers --- */
   const opts = (col: string) => {
     if (col === 'region') return REGIONS;
     if (col === 'business_sector') return BUSINESS_SECTORS;
@@ -133,7 +135,7 @@ export const AdminPanel: React.FC = () => {
     setNewRow({});
   };
 
-  /* ───── ui ───── */
+  /* ---------- UI ---------- */
   if (loading)
     return (
       <div className="min-h-screen flex items-center justify-center text-white animate-pulse">
@@ -157,12 +159,14 @@ export const AdminPanel: React.FC = () => {
 
   return (
     <div className="min-h-screen flex bg-gradient-to-br from-[#0e0e11] via-[#09090b] to-black text-gray-100">
-      {/* sidebar */}
+      {/* ─────────── sidebar ─────────── */}
       <aside className="w-64 shrink-0 border-r border-zinc-800 bg-zinc-950/95 backdrop-blur-sm p-5 space-y-8">
         <div className="flex items-center gap-2 text-lg font-bold">
-          <LayoutDashboard className="w-5 h-5 text-indigo-500" /> Admin Panel
+          <LayoutDashboard className="w-5 h-5 text-indigo-500" />
+          Admin Panel
         </div>
 
+        {/* список таблиц */}
         <nav className="space-y-2">
           {TABLES.map(t => (
             <button
@@ -179,6 +183,16 @@ export const AdminPanel: React.FC = () => {
               {t === 'er-diagram' ? 'ER-diagram' : t}
             </button>
           ))}
+
+          {/* ★ новая кнопка – модерация идей */}
+          <button
+            onClick={() => navigate('/moderate-ideas')}
+            className="w-full flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition
+                       bg-emerald-600/90 hover:bg-emerald-600 mt-4"
+          >
+            <Filter className="w-4 h-4" />
+            Модерация идей
+          </button>
         </nav>
 
         <button
@@ -190,13 +204,13 @@ export const AdminPanel: React.FC = () => {
         </button>
       </aside>
 
-      {/* content */}
+      {/* ─────────── content ─────────── */}
       <main className="flex-1 p-8 overflow-auto">
         <h1 className="text-2xl font-bold mb-6 capitalize">
           {active === 'er-diagram' ? 'ER-diagram' : active}
         </h1>
 
-        {/* ER */}
+        {/* --- ER-diagram --- */}
         {active === 'er-diagram' ? (
           <section className="bg-zinc-900 rounded-xl p-6 shadow-xl">
             <div className="flex justify-end gap-2 mb-2">
@@ -217,10 +231,7 @@ export const AdminPanel: React.FC = () => {
               <img
                 src="/er-diagram.svg"
                 alt="er"
-                style={{
-                  transform: `scale(${zoom / 100})`,
-                  transformOrigin: 'top left',
-                }}
+                style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top left' }}
                 className="border border-zinc-700 rounded shadow-lg"
               />
             </div>
@@ -230,11 +241,7 @@ export const AdminPanel: React.FC = () => {
             {/* search */}
             <div className="flex flex-wrap gap-3 mb-4">
               <select
-                value={
-                  search[active]?.column ||
-                  Object.keys(data[active]![0])[0] ||
-                  ''
-                }
+                value={search[active]?.column || Object.keys(data[active]![0])[0]}
                 onChange={e =>
                   setSearch(prev => ({
                     ...prev,
@@ -250,6 +257,7 @@ export const AdminPanel: React.FC = () => {
                   <option key={k}>{k}</option>
                 ))}
               </select>
+
               <div className="relative flex-1 min-w-[180px]">
                 <Search className="w-4 h-4 absolute top-1/2 -translate-y-1/2 left-3 text-gray-400" />
                 <input
@@ -259,10 +267,8 @@ export const AdminPanel: React.FC = () => {
                     setSearch(prev => ({
                       ...prev,
                       [active]: {
-                        column:
-                          prev[active]?.column ||
-                          Object.keys(data[active]![0])[0],
-                        query: e.target.value.toLowerCase(),
+                        column: prev[active]?.column || Object.keys(data[active]![0])[0],
+                        query : e.target.value.toLowerCase(),
                       },
                     }))
                   }
@@ -277,10 +283,7 @@ export const AdminPanel: React.FC = () => {
                 <thead className="bg-zinc-800 sticky top-0 shadow">
                   <tr>
                     {Object.keys(data[active]![0]).map(k => (
-                      <th
-                        key={k}
-                        className="px-3 py-2 border border-zinc-700 text-left font-medium"
-                      >
+                      <th key={k} className="px-3 py-2 border border-zinc-700 text-left font-medium">
                         {k}
                       </th>
                     ))}
@@ -290,27 +293,19 @@ export const AdminPanel: React.FC = () => {
                   {data[active]!
                     .filter(r =>
                       search[active]?.query
-                        ? String(
-                            r[search[active]!.column] ?? '',
-                          )
+                        ? String(r[search[active]!.column] ?? '')
                             .toLowerCase()
                             .includes(search[active]!.query)
                         : true,
                     )
                     .map((row, rIdx) => (
-                      <tr
-                        key={rIdx}
-                        className="odd:bg-zinc-900 even:bg-zinc-800/70 hover:bg-indigo-600/30"
-                      >
+                      <tr key={rIdx} className="odd:bg-zinc-900 even:bg-zinc-800/70 hover:bg-indigo-600/30">
                         {Object.entries(row).map(([col, val], cIdx) => {
                           const editing =
-                            editCell?.table === active &&
-                            editCell.row === rIdx &&
-                            editCell.column === col;
+                            editCell?.table === active && editCell.row === rIdx && editCell.column === col;
                           const locked = LOCKED_FIELDS.includes(col);
-                          const listOpt =
-                            active === 'trendingideas' && col === 'tags';
-                          const selOpt = opts(col);
+                          const listOpt = active === 'trendingideas' && col === 'tags';
+                          const selOpt  = opts(col);
 
                           return (
                             <td
@@ -320,9 +315,7 @@ export const AdminPanel: React.FC = () => {
                                 locked && 'text-gray-500',
                                 editing && 'bg-indigo-600/50',
                               )}
-                              onDoubleClick={() =>
-                                beginEdit(active, rIdx, col, val)
-                              }
+                              onDoubleClick={() => beginEdit(active, rIdx, col, val)}
                             >
                               {editing ? (
                                 listOpt ? (
@@ -333,11 +326,7 @@ export const AdminPanel: React.FC = () => {
                                     value={editValue.split(',')}
                                     onChange={e =>
                                       setEditValue(
-                                        Array.from(
-                                          e.target.selectedOptions,
-                                        )
-                                          .map(o => o.value)
-                                          .join(','),
+                                        Array.from(e.target.selectedOptions).map(o => o.value).join(','),
                                       )
                                     }
                                     onBlur={saveEdit}
@@ -351,9 +340,7 @@ export const AdminPanel: React.FC = () => {
                                   <select
                                     autoFocus
                                     value={editValue}
-                                    onChange={e =>
-                                      setEditValue(e.target.value)
-                                    }
+                                    onChange={e => setEditValue(e.target.value)}
                                     onBlur={saveEdit}
                                     className="w-full bg-zinc-700 rounded px-2 py-1"
                                   >
@@ -365,13 +352,9 @@ export const AdminPanel: React.FC = () => {
                                   <input
                                     autoFocus
                                     value={editValue}
-                                    onChange={e =>
-                                      setEditValue(e.target.value)
-                                    }
+                                    onChange={e => setEditValue(e.target.value)}
                                     onBlur={saveEdit}
-                                    onKeyDown={e =>
-                                      e.key === 'Enter' && saveEdit()
-                                    }
+                                    onKeyDown={e => e.key === 'Enter' && saveEdit()}
                                     className="w-full bg-zinc-700 rounded px-2 py-1"
                                   />
                                 )
@@ -387,14 +370,13 @@ export const AdminPanel: React.FC = () => {
               </table>
             </section>
 
-            {/* add row */}
-            {['translations', 'parserresults', 'trendingideas'].includes(
-              active,
-            ) && (
+            {/* add row (для нескольких таблиц) */}
+            {['translations', 'parserresults', 'trendingideas'].includes(active) && (
               <div className="mt-8 bg-zinc-900 p-4 rounded-xl shadow-lg space-y-3">
                 <h3 className="font-semibold flex items-center gap-2">
                   <Plus className="w-4 h-4" /> Новая запись
                 </h3>
+
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {Object.keys(data[active]![0])
                     .filter(k => !LOCKED_FIELDS.includes(k))
@@ -403,13 +385,12 @@ export const AdminPanel: React.FC = () => {
                         key={key}
                         placeholder={key}
                         value={newRow[key] || ''}
-                        onChange={e =>
-                          setNewRow(p => ({ ...p, [key]: e.target.value }))
-                        }
+                        onChange={e => setNewRow(p => ({ ...p, [key]: e.target.value }))}
                         className="bg-zinc-800 rounded px-3 py-1 text-sm"
                       />
                     ))}
                 </div>
+
                 <button
                   onClick={addRow}
                   className="mt-2 flex items-center gap-2 bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-sm"
