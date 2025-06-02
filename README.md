@@ -1,84 +1,79 @@
-# 📈 BizIdeas
+# 🚀 BizIdeas 2.0
 
-**BizIdeas** — веб‑платформа, которая помогает предпринимателям быстро адаптировать свой бизнес к актуальным трендам.  
-Проект написан на **React + TypeScript** и использует **Supabase** как единую back‑end платформу (PostgreSQL + Storage + Auth + Edge Functions).
+**BizIdeas** — платформа, которая помогает предпринимателям быстро адаптировать бизнес‑модель к актуальным трендам и технологиям.
 
----
+Новая версия 2.0 добавляет:
 
-## ✨ Основные возможности
-
-| Модуль | Что делает |
-|--------|------------|
-| **Главная** | Анимированный 3‑D‑фон (Spline), hero‑блок, ссылки на актуальные ресурсы, маскот‑помощник с подсказками. |
-| **Идеи** `/ideas` | Лента популярных бизнес‑идей. Фильтрация по тегам, пагинация, выбор «своей» идеи (1 на пользователя) для дальнейшей аналитики. |
-| **AI‑Assistant** `/assistant` | Генерирует персональные рекомендации по трансформации бизнеса.<br>• **1 запрос** в плане *Standard*.<br>• **Безлимит** в планах *Plus* и *Admin*. |
-| **Analytics** `/analytics` | Графики Recharts: динамика идей, средний score, donut + bar по топ‑тегам, KPI‑карточки, live‑данные из Supabase `trendingideas`. |
-| **Подписки** `/plans` | Описание тарифов (*Standard / Plus*), CTA на оплату. |
-| **Профиль** `/profile` | Данные пользователя (регион, сектор, цель, опыт, Telegram, описание). Интерактивный flip‑edit с progress‑bar заполненности. |
-| **Админ‑панель** `/admin` | CRUD для всех таблиц, поиск, inline‑редактирование, SQL ER‑диаграмма с zoom. |
-| **Auth** | Email + password. Reset password. Роут‑гварды (*ProtectedRoute*, *AdminRoute*). |
+* избранные идеи 💙 с офлайн‑хранением;
+* более чистую UI‑схему без «скачков» при фильтрации;
+* пустые состояния и toast‑подсказки;
+* расширенный модуль модерации идей;
+* улучшенную доступность (клавиши ← / →, Esc).
 
 ---
 
-## 🏗️ Технологический стек
+## ✨ Основные разделы
 
-| Группа | Стек |
-|--------|------|
-| UI / Front‑end | React 18 • Vite • TypeScript • TailwindCSS • Framer Motion • Lucide icons • Spline web‑viewer |
-| Charts / Data | Recharts |
-| Back‑end BaaS | Supabase (PostgreSQL • Storage • Auth • Edge Functions) |
-| AI / LLM | OpenAI API (можно заменить / дополнить локальным Mistral LLM) |
-| Payments | Stripe Checkout (планы *standard* / *plus*) |
-| Tooling | ESLint + Prettier • Husky • Commitlint • Vite preview |
+| Модуль                | URL               | Возможности |
+|-----------------------|-------------------|-------------|
+| Главная               | `/`               | 3‑D фон (Spline), hero‑блок, маскот |
+| Идеи                  | `/ideas`          | **Фильтры, избранное, выбор основной идеи, прогресс‑бар популярности** |
+| AI‑Ассистент          | `/assistant`      | Персональные рекомендации (OpenAI / локальный LLM) |
+| Аналитика             | `/analytics`      | Recharts: динамика, топ‑теги, KPI |
+| Подписки              | `/plans`          | Stripe Checkout (*Standard / Plus*) |
+| Профиль               | `/profile`        | Region / Goal / Experience + progress |
+| Предложить идею       | `/suggest-idea`   | Form → Preview → Toast «Отправлено» |
+| Модерация идей        | `/moderate-ideas` | Live поиск, approve / reject |
+| Админ‑панель          | `/admin`          | CRUD для всех таблиц, ER‑диаграмма |
 
 ---
 
-## 🚀 Запуск локально
+## 🏗️ Стек
+
+| Front‑end              | Back‑end / BaaS         | Данные / AI       | Dev‑tooling |
+|------------------------|-------------------------|-------------------|-------------|
+| React 18 + Vite        | **Supabase**: PostgreSQL, Storage, Auth, Edge Functions | OpenAI API (или Mistral LLM), Recharts | TypeScript, TailwindCSS, ESLint + Prettier, Husky |
+
+---
+
+## ⚡ Быстрый старт
 
 ```bash
-# 1 – клонируем
 git clone https://github.com/<you>/bizideas.git
 cd bizideas
-
-# 2 – устанавливаем зависимости
-pnpm i          # или yarn / npm
-
-# 3 – переменные среды
-cp .env.example .env.local
-# добавьте SUPABASE_URL, SUPABASE_ANON_KEY, OPENAI_API_KEY, STRIPE_PK …
-
-# 4 – dev‑сервер
-pnpm dev        # http://localhost:5173
+pnpm i                       # или yarn / npm
+cp .env.example .env.local    # добавьте ключи Supabase / Stripe / OpenAI
+pnpm dev                     # http://localhost:5173
 ```
 
-> **Важно:** Supabase‑schema (`sql/01_init.sql`) и `storage/bucket_public` автоматически разворачиваются при создании проекта через Supabase CLI.
+> **ℹ️ Supabase CLI** автоматически разворачивает `sql/01_init.sql` и public‑bucket при `supabase start`.
 
 ---
 
 ## 🔑 Переменные окружения
 
-| Переменная | Описание |
-|------------|----------|
-| `VITE_SUPABASE_URL` | URL Supabase‑проекта |
-| `VITE_SUPABASE_ANON` | anon‑ключ |
-| `VITE_OPENAI_API_KEY` | ключ OpenAI |
-| `VITE_STRIPE_PK` | публичный ключ Stripe |
-| `VITE_SITE_URL` | базовый URL |
+| Переменная               | Описание                          |
+|--------------------------|-----------------------------------|
+| `VITE_SUPABASE_URL`      | URL проекта Supabase              |
+| `VITE_SUPABASE_ANON`     | anon‑ключ                         |
+| `VITE_OPENAI_API_KEY`    | ключ OpenAI / собственный LLM     |
+| `VITE_STRIPE_PK`         | публичный ключ Stripe             |
+| `VITE_SITE_URL`          | базовый URL сайта                 |
 
 ---
 
-## 📄 Структура проекта
+## 📂 Структура проекта
 
 ```
 .
 ├─ public/
 ├─ src/
-│  ├─ components/
-│  ├─ contexts/
-│  ├─ lib/
-│  ├─ pages/
-│  ├─ sql/
-│  └─ styles/
+│  ├─ components/     # UI‑компоненты
+│  ├─ contexts/       # React‑контексты (Auth, Lang …)
+│  ├─ lib/            # Supabase client, helpers
+│  ├─ pages/          # Страницы‑роуты
+│  ├─ sql/            # миграции для Supabase CLI
+│  └─ styles/         # Tailwind base + animations
 └─ README.md
 ```
 
@@ -86,27 +81,27 @@ pnpm dev        # http://localhost:5173
 
 ## 🧪 Скрипты npm
 
-| Скрипт | Действие |
-|--------|----------|
-| `dev` | Vite dev‑сервер |
-| `build` | production‑сборка |
-| `preview` | локальный preview `/dist` |
-| `lint` | ESLint + Prettier |
-| `format` | Применить Prettier |
-| `supabase start` | локальный Supabase (CLI) |
+| Команда       | Описание                      |
+|---------------|------------------------------|
+| `dev`         | Vite dev‑сервер              |
+| `build`       | Production‑сборка            |
+| `preview`     | Preview из `/dist`           |
+| `lint`        | ESLint + Prettier            |
+| `format`      | Запуск Prettier              |
+| `supabase start` | Локальный Supabase Dev      |
 
 ---
 
-## 💳 Подписки и оплата
+## 💳 Stripe Flow
 
-1. **Stripe Product + Price** – создайте `plan_standard`, `plan_plus`.  
-2. **Checkout Session** – `/api/stripe/create-session`.  
-3. **Webhook** – `/api/stripe/webhook` → таблица `subscription`.  
-4. **Edge Function** – `subscription_expire.ts` снимает просроченные планы.
+1. Products: **plan_standard**, **plan_plus**  
+2. `/api/stripe/create-session` → redirect to Checkout  
+3. Webhook `/api/stripe/webhook` → таблица **subscription**  
+4. Edge Function `subscription_expire.ts` отрубает просроченные планы
 
 ---
 
-## © License
+## 📜 Лицензия
 
-MIT © 2025 BizIdeas Team  
-«Помогаем бизнесу перестроиться под тренды».
+MIT © 2025 BizIdeas Team  
+*«Помогаем бизнесу меняться вместе с трендами»*
