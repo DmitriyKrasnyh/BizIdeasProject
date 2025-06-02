@@ -193,6 +193,17 @@ export const AdminPanel: React.FC = () => {
             <Filter className="w-4 h-4" />
             Модерация идей
           </button>
+        
+
+        {/* ★ новая кнопка – аналитика */}
+        <button
+            onClick={() => navigate('/analytics')}
+            className="w-full flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition
+                       bg-emerald-600/90 hover:bg-emerald-600 mt-4"
+          >
+            <Filter className="w-4 h-4" />
+            Аналитика
+          </button>
         </nav>
 
         <button

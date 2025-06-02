@@ -1,11 +1,12 @@
 /* ────────────────────────────────────────────────────────────────
-   src/pages/Ideas.tsx
-   • лайк  💙
-   • пустые / крайние состояния + toast
-   • hotkeys ← / → / Esc
-   • progress-bar вместо цифры popularity
-   • похожие идеи в модалке
-   • FAB «Предложить» в правом нижнем углу
+   src/pages/Ideas.tsx   (полный файл)
+   ────────────────────────────────────────────────────────────────
+   ✔ лайк 💙 / избранное
+   ✔ toast-подсказки + hot-keys ← / → / Esc
+   ✔ прогресс-бар popularity
+   ✔ «похожие идеи» внутри модалки
+   ✔ адаптив: 1-колонка < 640 px, карточка-модалка = full-screen на телефонах
+   ✔ кнопка «Предложить идею» теперь штатно в футере (не fixed, не перекрывает маскота)
 ────────────────────────────────────────────────────────────────── */
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import {
@@ -13,16 +14,16 @@ import {
   Heart, HeartOff, X as Close,
 } from 'lucide-react';
 import Joyride, { STATUS, Step, CallBackProps } from 'react-joyride';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate }  from 'react-router-dom';
-import toast            from 'react-hot-toast';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 
-import { supabase }         from '../lib/supabase';
-import { useLanguage }      from '../contexts/LanguageContext';
-import { useAuth }          from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext';
 import { BUSINESS_SECTORS } from '../contexts/constants';
-import FancyTooltip         from '../components/FancyTooltip';
-import mascotImg            from './logos/mascot.png';
+import FancyTooltip from '../components/FancyTooltip';
+import mascotImg from './logos/mascot.png';
 
 /* ---------- types ---------- */
 interface Idea {
@@ -34,41 +35,41 @@ interface Idea {
 }
 
 /* ---------- const ---------- */
-const PAGE_SIZE  = 6;
+const PAGE_SIZE = 6;
 const SWIPE_TRSH = 40;
 
 /* ---------- joy-steps ---------- */
 const steps: Step[] = [
-  { target:'#filter-chip-ИТ',   content:'Используйте теги для фильтра.' },
-  { target:'#chip-liked',       content:'Отобразите только понравившиеся.' },
-  { target:'#idea-card-1',      content:'Откройте подробности идеи.' },
-  { target:'#ideas-pagination', content:'Переключайте страницы.' },
-  { target:'#fab-suggest',      content:'Добавьте свою идею!' },
+  { target: '#filter-chip-ИТ', content: 'Используйте теги для фильтра.' },
+  { target: '#chip-liked', content: 'Отобразите только понравившиеся.' },
+  { target: '#idea-card-1', content: 'Откройте подробности идеи.' },
+  { target: '#ideas-pagination', content: 'Переключайте страницы.' },
+  { target: '#footer-suggest', content: 'Добавьте свою идею!' },
 ];
 
 /* ------------------------------------------------------------------ */
 export default function Ideas() {
-  const { t }     = useLanguage();
-  const { user }  = useAuth();
-  const nav       = useNavigate();
+  const { t } = useLanguage();
+  const { user } = useAuth();
+  const nav = useNavigate();
 
   /* ───── state ───── */
-  const [ideas, setIdeas]         = useState<Idea[]>([]);
-  const [selectedTags, setTags]   = useState<string[]>([]);
-  const [liked, setLiked]         = useState<number[]>(
+  const [ideas, setIdeas] = useState<Idea[]>([]);
+  const [selectedTags, setTags] = useState<string[]>([]);
+  const [liked, setLiked] = useState<number[]>(
     () => JSON.parse(localStorage.getItem('liked_ideas') || '[]'),
   );
   const [onlyLiked, setOnlyLiked] = useState(false);
-  const [expanded, setExpanded]   = useState<Idea | null>(null);
-  const [loading, setLoading]     = useState(true);
-  const [page, setPage]           = useState(1);
+  const [expanded, setExpanded] = useState<Idea | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
 
-  const [userId,   setUserId]     = useState<number | null>(null);
-  const [mainIdea, setMainIdea]   = useState<number | null>(null);
-  const [saving,   setSaving]     = useState(false);
+  const [userId, setUserId] = useState<number | null>(null);
+  const [mainIdea, setMainIdea] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const [mascotWiggle, setWiggle] = useState(false);
-  const [guide, setGuide]         = useState(
+  const [guide, setGuide] = useState(
     !localStorage.getItem('guide_ideas_seen'),
   );
 
@@ -115,10 +116,9 @@ export default function Ideas() {
     setLiked(p => {
       const next = p.includes(id) ? p.filter(x => x !== id) : [...p, id];
       localStorage.setItem('liked_ideas', JSON.stringify(next));
-      toast(
-        next.includes(id) ? 'Добавлено в избранное' : 'Убрано из избранного',
-        { icon: next.includes(id) ? '💙' : '💔' },
-      );
+      toast(next.includes(id) ? 'Добавлено в избранное' : 'Убрано из избранного', {
+        icon: next.includes(id) ? '💙' : '💔',
+      });
       return next;
     });
   };
@@ -160,9 +160,7 @@ export default function Ideas() {
     if (!expanded) return [];
     const tag = expanded.tags[0];
     return ideas
-      .filter(
-        i => i.idea_id !== expanded.idea_id && i.tags.includes(tag),
-      )
+      .filter(i => i.idea_id !== expanded.idea_id && i.tags.includes(tag))
       .slice(0, 3);
   }, [expanded, ideas]);
 
@@ -200,10 +198,11 @@ export default function Ideas() {
   return (
     <div
       className="pt-20 min-h-screen bg-gradient-to-br from-[#100018] via-[#070111] to-black text-white
-                 pb-40 sm:pb-20 px-4 relative overflow-hidden"
+                 pb-36 sm:pb-20 px-4 relative overflow-hidden"
       onTouchStart={onStart}
       onTouchEnd={onEnd}
     >
+      {/* On-boarding */}
       <Joyride
         run={guide}
         steps={steps}
@@ -283,7 +282,11 @@ export default function Ideas() {
           <Skeleton />
         ) : slice.length === 0 ? (
           <EmptyState
-            message={onlyLiked ? 'Пока нет понравившихся идей' : 'Подходящих идей не найдено'}
+            message={
+              onlyLiked
+                ? 'Пока нет понравившихся идей'
+                : 'Подходящих идей не найдено'
+            }
             action={onlyLiked ? () => setOnlyLiked(false) : () => setTags([])}
             actionLabel={onlyLiked ? 'Показать все' : 'Сбросить фильтр'}
           />
@@ -301,7 +304,6 @@ export default function Ideas() {
             ))}
           </div>
         )}
-
 
         {/* pagination */}
         {pages > 1 && (
@@ -326,38 +328,34 @@ export default function Ideas() {
             ))}
           </nav>
         )}
+
+        {/* footer suggest btn */}
+        <div
+          id="footer-suggest"
+          className="flex justify-end mt-12 sm:mt-16"
+        >
+          <button
+            onClick={() => nav('/suggest-idea')}
+            className="flex items-center gap-2
+                       bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500
+                       px-6 py-3 rounded-full text-white font-semibold
+                       shadow-xl shadow-teal-800/40 backdrop-blur-lg"
+          >
+            <Plus className="w-5 h-5" />
+            Предложить идею
+          </button>
+        </div>
       </div>
 
       {/* mascot */}
       <div className="hidden sm:block absolute bottom-0 left-1/2 -translate-x-1/2 z-0 pointer-events-none">
         <div
           className={`relative w-64 h-36 sm:w-[500px] sm:h-[300px] overflow-hidden
-                       transition-transform ${
-                         mascotWiggle ? 'animate-wiggle' : ''
-                       }`}
+                       transition-transform ${mascotWiggle ? 'animate-wiggle' : ''}`}
         >
           <img src={mascotImg} alt="" className="w-full h-auto" />
         </div>
       </div>
-
-      {/* FAB */}
-      <motion.button
-        id="fab-suggest"
-        initial={{ scale: 0, y: 80 }}
-        animate={{
-          scale: 1,
-          y: 0,
-          transition: { type: 'spring', stiffness: 260, damping: 20 },
-        }}
-        whileHover={{ scale: 1.08 }}
-        whileTap={{ scale: 0.93 }}
-        onClick={() => nav('/suggest-idea')}
-        className="fixed bottom-5 sm:bottom-7 right-4 sm:right-8 z-30 flex items-center gap-2
-                     bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 px-5 py-3 rounded-full
-                     text-white font-semibold shadow-xl shadow-teal-800/40 backdrop-blur-lg"
-      >
-        <Plus className="w-5 h-5" /> Предложить идею
-      </motion.button>
 
       {/* modal */}
       <AnimatePresence>
@@ -366,26 +364,28 @@ export default function Ideas() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-0 sm:p-4"
             onClick={() => setExpanded(null)}
           >
             <motion.div
-              initial={{ scale: 0.9 }}
+              initial={{ scale: 0.95 }}
               animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
+              exit={{ scale: 0.95 }}
               onClick={e => e.stopPropagation()}
-              className="relative max-w-xl w-full bg-gray-900 rounded-xl p-6 shadow-lg"
+              className="relative w-full h-full sm:h-auto sm:max-w-xl
+                         bg-gray-900 rounded-none sm:rounded-xl p-6 sm:p-8
+                         overflow-y-auto sm:overflow-visible"
             >
               <button
                 aria-label="Закрыть"
                 onClick={() => setExpanded(null)}
-                className="absolute -top-3 -right-3 bg-gray-800 w-7 h-7 rounded-full
-                             grid place-content-center hover:bg-gray-700"
+                className="absolute top-4 right-4 bg-gray-800/70 w-8 h-8 rounded-full
+                           grid place-content-center hover:bg-gray-700"
               >
                 <Close className="w-4 h-4" />
               </button>
 
-              <h2 className="text-2xl font-bold mb-4">{expanded.title}</h2>
+              <h2 className="text-2xl font-bold mb-4 pr-10">{expanded.title}</h2>
               <p className="text-gray-300 mb-4 whitespace-pre-line">
                 {expanded.description}
               </p>
@@ -421,7 +421,8 @@ export default function Ideas() {
                   className="flex-1 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500
                                flex items-center justify-center gap-2"
                 >
-                  <Lightbulb className="w-4 h-4" /> Предложить похожую
+                  <Lightbulb className="w-4 h-4" />
+                  Предложить похожую
                 </button>
               </div>
 
@@ -490,7 +491,7 @@ function IdeaCard({
         )}
       </button>
 
-      <h3 className="text-lg font-semibold mb-2 pr-6">{idea.title}</h3>
+      <h3 className="text-lg font-semibold mb-2 pr-8">{idea.title}</h3>
       <p className="text-sm text-gray-300 line-clamp-3">{idea.description}</p>
 
       <div className="flex flex-wrap gap-2 mt-3">
@@ -510,7 +511,6 @@ function IdeaCard({
     </article>
   );
 }
-
 
 function Progress({ val, mini }: { val: number; mini?: boolean }) {
   return (
@@ -536,10 +536,7 @@ function Skeleton() {
   return (
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 animate-pulse">
       {Array.from({ length: PAGE_SIZE }).map((_, i) => (
-        <div
-          key={i}
-          className="h-40 bg-zinc-800/70 rounded-xl"
-        />
+        <div key={i} className="h-40 bg-zinc-800/70 rounded-xl" />
       ))}
     </div>
   );

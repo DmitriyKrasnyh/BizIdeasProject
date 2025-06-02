@@ -49,7 +49,8 @@ export const Assistant:React.FC = () => {
 
   const bottomRef = useRef<HTMLDivElement>(null);
   useEffect(()=>bottomRef.current?.scrollIntoView({behavior:'smooth'}),[msgs]);
-
+  
+    document.title = 'BizIdeas | AI';
   /* ───── fetch chat + realtime ───── */
   useEffect(()=>{
     if(!user?.user_id){ setBusy(false); return; }

@@ -23,7 +23,6 @@ import { useAuth } from '../contexts/AuthContext';
 const BASE_LINKS = [
   { to: '/ideas',     label: 'Идеи',      icon: <Sprout className="w-4 h-4" /> },
   { to: '/assistant', label: 'AI',        icon: <Bot    className="w-4 h-4" /> },
-  { to: '/analytics', label: 'Аналитика', icon: <BarChart2 className="w-4 h-4" /> },
   { to: '/pricing',   label: 'Подписки',  icon: <Zap className="w-4 h-4" /> },
   { to: '/faq',       label: 'FAQ',       icon: <HelpCircle className="w-4 h-4" /> },  // ← NEW
 ];
@@ -79,10 +78,10 @@ export const Navbar: React.FC = () => {
   /* ░░░ 2. только логотип-якорь на главной (/) ░░░ */
   if (pathname === '/') {
     return (
-      <nav className="fixed top-8 left-5 z-50">
-        <Link to="/" className="flex items-center gap-2">
-          <Home className="h-6 w-6 text-blue-600" />
-          <span className="text-xl font-bold text-white">BizIdeas</span>
+      <nav>
+        <Link>
+          
+          
         </Link>
       </nav>
     );

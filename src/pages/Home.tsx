@@ -1,10 +1,11 @@
 // src/pages/Home.tsx
 import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { motion } from 'framer-motion';
-import { LogOut } from 'lucide-react';
+import { LogOut, Home as HomeIcon } from 'lucide-react'; // ← Импорт иконки
 import { Guide } from '../guide/Guide';
+import { Link } from 'react-router-dom';
 
 const STATS = [
   { value: '72',   label: 'актуальные бизнес-идеи' },
@@ -15,13 +16,27 @@ const STATS = [
 function Home() {
   const { user, logout } = useAuth();
   const nav = useNavigate();
+  const { pathname } = useLocation(); // ← чтобы узнать текущий путь
 
-  useEffect(() => { document.title = 'BizIdeas | Быстрый рост малого бизнеса'; }, []);
+  useEffect(() => {
+    document.title = 'BizIdeas | Быстрый рост малого бизнеса';
+  }, []);
 
   return (
     <>
+      {/* ░░░ 2. Логотип-якорь на главной (/) ░░░ */}
+      {pathname === '/' && (
+        <nav className="fixed top-4 left-4 z-50">
+          <Link to="/" className="flex items-center gap-2">
+            <HomeIcon className="h-6 w-6 text-blue-600" />
+            <span className="text-xl font-bold text-white">BizIdeas</span>
+          </Link>
+        </nav>
+      )}
+
       <Guide />
       <div className="relative min-h-screen flex flex-col bg-zinc-900 text-white overflow-hidden">
+        {/* background pattern */}
         <svg className="absolute inset-0 w-full h-full opacity-10 pointer-events-none" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <pattern id="dots" width="20" height="20" patternUnits="userSpaceOnUse">
@@ -31,6 +46,7 @@ function Home() {
           <rect width="100%" height="100%" fill="url(#dots)" />
         </svg>
 
+        {/* header */}
         <header className="relative z-10 flex justify-end items-center h-14 px-4 sm:px-6">
           {user ? (
             <button onClick={logout} className="flex items-center gap-2 text-sm border border-white/30 px-4 py-1.5 rounded-full hover:bg-white hover:text-black transition">
@@ -43,6 +59,7 @@ function Home() {
           )}
         </header>
 
+        {/* main */}
         <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 pb-16 pt-24 sm:pt-28 md:pt-32">
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-center leading-tight mb-6">
             <span className="bg-gradient-to-r from-indigo-400 via-fuchsia-500 to-pink-500 bg-clip-text text-transparent drop-shadow-lg">Трендовые идеи.</span><br />
@@ -55,7 +72,15 @@ function Home() {
 
           <section className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 max-w-3xl w-full mb-12">
             {STATS.map((s, i) => (
-              <motion.div key={s.label} className="backdrop-blur-md bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col items-center" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }} whileHover={{ y: -4, boxShadow: '0 10px 25px rgba(0,0,0,0.25)' }}>
+              <motion.div
+                key={s.label}
+                className="backdrop-blur-md bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col items-center"
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+                whileHover={{ y: -4, boxShadow: '0 10px 25px rgba(0,0,0,0.25)' }}
+              >
                 <span className="text-3xl sm:text-4xl font-bold text-indigo-300">{s.value}</span>
                 <span className="mt-2 text-sm text-gray-300 text-center">{s.label}</span>
               </motion.div>
@@ -74,6 +99,7 @@ function Home() {
           </div>
         </main>
 
+        {/* footer */}
         <footer className="relative z-10 py-6 text-center text-[10px] sm:text-xs text-gray-500 px-4">
           Данные: VC.ru · Habr · Inc · РБК Тренды · Rusbase
         </footer>

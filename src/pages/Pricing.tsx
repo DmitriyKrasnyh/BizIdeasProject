@@ -2,6 +2,7 @@ import { CheckCircle, Sparkle, Infinity, Zap } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 export const Pricing: React.FC = () => (
+  
   <div className="min-h-screen pt-24 md:pt-28 pb-20 px-4
                   bg-gradient-to-br from-[#100018] via-[#070111] to-black text-white">
 
