@@ -26,13 +26,14 @@ function Home() {
     <>
       {/* ░░░ 2. Логотип-якорь на главной (/) ░░░ */}
       {pathname === '/' && (
-        <nav className="fixed top-4 left-4 z-50">
-          <Link to="/" className="flex items-center gap-2">
+        <div className="fixed top-4 left-4 z-[9999] pointer-events-auto">
+          <Link to="/" className="flex items-center gap-2 bg-zinc-900/80 px-3 py-1 rounded-full backdrop-blur-md">
             <HomeIcon className="h-6 w-6 text-blue-600" />
             <span className="text-xl font-bold text-white">BizIdeas</span>
           </Link>
-        </nav>
+        </div>
       )}
+  
 
       <Guide />
       <div className="relative min-h-screen flex flex-col bg-zinc-900 text-white overflow-hidden">

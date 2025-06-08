@@ -1,0 +1,9 @@
+Запуск LLM вместе с Telegram ботом
+
+1-ый терминал:
+.\.venv\Scripts\Activate.ps1
+python backend/llm/serve.py --model backend/llm/models/mistral-7b-instruct-v0.2.Q4_K_M.gguf --host 127.0.0.1 --port 8000
+
+2-ой терминал:
+.\.venv\Scripts\Activate.ps1
+python backend/gpt_bot.py
